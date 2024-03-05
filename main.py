@@ -98,6 +98,35 @@ app.layout = html.Div([
     
     # Gráfico de Burbujas
     dcc.Graph(id='bubble-plot'),
+    
+    # Sección para el gráfico 3D
+    html.Hr(),  # Línea horizontal para separar las secciones
+    
+    html.H2("Gráfico en 3D Configurable"),
+    
+    # Dropdown para seleccionar la dimensión X del gráfico 3D
+    html.Label("Seleccionar dimensión X (3D):"),
+    dcc.Dropdown(
+        id='3d-x-dropdown',
+        value=''
+    ),
+    
+    # Dropdown para seleccionar la dimensión Y del gráfico 3D
+    html.Label("Seleccionar dimensión Y (3D):"),
+    dcc.Dropdown(
+        id='3d-y-dropdown',
+        value=''
+    ),
+    
+    # Dropdown para seleccionar la dimensión Z del gráfico 3D
+    html.Label("Seleccionar dimensión Z (3D):"),
+    dcc.Dropdown(
+        id='3d-z-dropdown',
+        value=''
+    ),
+    
+    # Gráfico en 3D
+    dcc.Graph(id='3d-plot'),
 ])
 
 # Función para cargar los datos desde un archivo CSV
@@ -118,14 +147,17 @@ def parse_contents(contents):
                Output('bubble-y-dropdown', 'options'),
                Output('bubble-size-dropdown', 'options'),
                Output('bubble-color-dropdown', 'options'),
-               Output('bubble-label-dropdown', 'options')],
+               Output('bubble-label-dropdown', 'options'),
+               Output('3d-x-dropdown', 'options'),
+               Output('3d-y-dropdown', 'options'),
+               Output('3d-z-dropdown', 'options')],
               [Input('upload-data', 'contents')])
 def update_output(contents):
     if contents is None:
         raise PreventUpdate
     else:
         options = parse_contents(contents)
-        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options
+        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options, options, options, options
 
 # Callback para actualizar el gráfico dinámico
 @app.callback(
@@ -173,6 +205,22 @@ def update_bubble_plot(selected_x, selected_y, selected_size, selected_color, se
                      hover_name=selected_label, title=f'Bubble Chart: {selected_size} vs. {selected_color} vs. {selected_x} vs. {selected_y}')
     return fig
 
+# Callback para actualizar el gráfico en 3D
+@app.callback(
+    Output('3d-plot', 'figure'),
+    [Input('3d-x-dropdown', 'value'),
+     Input('3d-y-dropdown', 'value'),
+     Input('3d-z-dropdown', 'value')],
+)
+def update_3d_plot(selected_x, selected_y, selected_z):
+    if not all([selected_x, selected_y, selected_z]):
+        raise PreventUpdate
+
+    fig = px.scatter_3d(df, x=selected_x, y=selected_y, z=selected_z, title=f'Gráfico en 3D: {selected_x} vs. {selected_y} vs. {selected_z}')
+    return fig
+
 # Ejecutar la aplicación
 if __name__ == '__main__':
     app.run_server(debug=True)
+
+
