@@ -33,8 +33,9 @@ app.layout = html.Div([
             {'label': 'Scatter Plot', 'value': 'scatter'},
             {'label': 'Histograma', 'value': 'histogram'},
             {'label': 'Polígono de Promedios', 'value': 'line'},
-            {'label': 'Gráfico de Barras', 'value': 'bar'},
-            {'label': 'Gráfico de Torta', 'value': 'pie'}
+            {'label': 'Gráfico de Barras (SUMA)', 'value': 'bar'},
+            {'label': 'Gráfico de Torta (SUMA)', 'value': 'pie'},
+            # Eliminamos la opción 'Gráfico de Barras Agrupadas (Bivariado)' del primer dropdown
         ],
         value='scatter'
     ),
@@ -99,7 +100,7 @@ app.layout = html.Div([
     # Gráfico de Burbujas
     dcc.Graph(id='bubble-plot'),
     
-    # Sección para el gráfico 3D
+    # Sección para el gráfico en 3D
     html.Hr(),  # Línea horizontal para separar las secciones
     
     html.H2("Gráfico en 3D Configurable"),
@@ -127,6 +128,28 @@ app.layout = html.Div([
     
     # Gráfico en 3D
     dcc.Graph(id='3d-plot'),
+    
+    # Sección para el gráfico de barras agrupadas (bivariado)
+    html.Hr(),  # Línea horizontal para separar las secciones
+    
+    html.H2("Gráfico de Barras Agrupadas (Bivariado)"),
+    
+    # Dropdown para seleccionar el atributo del eje X en el gráfico de barras agrupadas
+    html.Label("Seleccionar atributo del eje X:"),
+    dcc.Dropdown(
+        id='grouped-bar-x-dropdown',
+        value=''
+    ),
+    
+    # Dropdown para seleccionar el atributo del subgrupo en el gráfico de barras agrupadas
+    html.Label("Seleccionar atributo del subgrupo del eje X:"),
+    dcc.Dropdown(
+        id='grouped-bar-subgroup-dropdown',
+        value=''
+    ),
+    
+    # Gráfico de Barras Agrupadas (Bivariado)
+    dcc.Graph(id='grouped-bar-bi-plot'),
 ])
 
 # Función para cargar los datos desde un archivo CSV
@@ -150,14 +173,16 @@ def parse_contents(contents):
                Output('bubble-label-dropdown', 'options'),
                Output('3d-x-dropdown', 'options'),
                Output('3d-y-dropdown', 'options'),
-               Output('3d-z-dropdown', 'options')],
+               Output('3d-z-dropdown', 'options'),
+               Output('grouped-bar-x-dropdown', 'options'),
+               Output('grouped-bar-subgroup-dropdown', 'options')],
               [Input('upload-data', 'contents')])
 def update_output(contents):
     if contents is None:
         raise PreventUpdate
     else:
         options = parse_contents(contents)
-        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options, options, options, options
+        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options, options, options, options, options, options
 
 # Callback para actualizar el gráfico dinámico
 @app.callback(
@@ -167,6 +192,9 @@ def update_output(contents):
      Input('y-axis-dropdown', 'value')],
 )
 def update_dynamic_plot(selected_grafico, selected_x, selected_y):
+    if selected_grafico == 'grouped-bar-bi':
+        raise PreventUpdate
+    
     if selected_grafico == 'scatter':
         fig = px.scatter(df, x=selected_x, y=selected_y)
     elif selected_grafico == 'histogram':
@@ -218,7 +246,20 @@ def update_3d_plot(selected_x, selected_y, selected_z):
 
     fig = px.scatter_3d(df, x=selected_x, y=selected_y, z=selected_z, title=f'Gráfico en 3D: {selected_x} vs. {selected_y} vs. {selected_z}')
     return fig
+# Callback para actualizar el gráfico de Barras Agrupadas (Bivariado)
+@app.callback(
+    Output('grouped-bar-bi-plot', 'figure'),
+    [Input('grouped-bar-x-dropdown', 'value'),
+     Input('grouped-bar-subgroup-dropdown', 'value')],
+)
+def update_grouped_bar_bi_plot(selected_x, selected_subgroup):
+    if not all([selected_x, selected_subgroup]):
+        raise PreventUpdate
 
+    fig = px.bar(df, x=selected_x, color=selected_subgroup, barmode='group',
+                 labels={selected_x: selected_x, 'count': 'Frecuencia'},
+                 title=f'Gráfico de Barras Agrupadas (Bivariado): {selected_x} vs. {selected_subgroup}')
+    return fig
 # Ejecutar la aplicación
 if __name__ == '__main__':
     app.run_server(debug=True)
