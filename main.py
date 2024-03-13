@@ -14,45 +14,48 @@ df = pd.DataFrame()
 
 # Diseño de la aplicación
 app.layout = html.Div([
-    html.H1("Gráficos Interactivos con Atributos Seleccionables"),
+    html.H1("Gráficos Interactivos con Atributos Seleccionables", style={'textAlign': 'center'}),
     
-    # Upload de archivo CSV
-    dcc.Upload(
-        id='upload-data',
-        children=html.Div(['Arrastra y suelta o ', html.A('selecciona un archivo CSV')]),
-        multiple=False
-    ),
+    # Sección de carga de datos
+    html.Div([
+        dcc.Upload(
+            id='upload-data',
+            children=html.Div(['Arrastra y suelta o ', html.A('selecciona un archivo CSV')]),
+            multiple=False
+        ),
+        html.Div(id='output-data-upload')
+    ], style={'marginBottom': '50px'}),
     
-    html.Div(id='output-data-upload'),
-    
-    # Dropdown para seleccionar el tipo de gráfico
-    html.Label("Seleccionar tipo de gráfico:"),
-    dcc.Dropdown(
-        id='tipo-grafico-dropdown',
-        options=[
-            {'label': 'Scatter Plot', 'value': 'scatter'},
-            {'label': 'Histograma', 'value': 'histogram'},
-            {'label': 'Polígono de Promedios', 'value': 'line'},
-            {'label': 'Gráfico de Barras (SUMA)', 'value': 'bar'},
-            {'label': 'Gráfico de Torta (SUMA)', 'value': 'pie'},
-            # Eliminamos la opción 'Gráfico de Barras Agrupadas (Bivariado)' del primer dropdown
-        ],
-        value='scatter'
-    ),
-    
-    # Dropdown para seleccionar el atributo del eje X
-    html.Label("Seleccionar atributo del eje X:"),
-    dcc.Dropdown(
-        id='x-axis-dropdown',
-        value=''
-    ),
-    
-    # Dropdown para seleccionar el atributo del eje Y
-    html.Label("Seleccionar atributo del eje Y:"),
-    dcc.Dropdown(
-        id='y-axis-dropdown',
-        value=''
-    ),
+    # Dropdowns para la selección de atributos y tipos de gráfico
+    html.Div([
+        html.Div([
+            html.Label("Seleccionar tipo de gráfico:"),
+            dcc.Dropdown(
+                id='tipo-grafico-dropdown',
+                options=[
+                    {'label': 'Diagrama de puntos', 'value': 'scatter'},
+                    {'label': 'Histograma (SUMA)', 'value': 'histogram'},
+                    {'label': 'Polígono de Promedios', 'value': 'line'},
+                    {'label': 'Gráfico de Torta (SUMA)', 'value': 'pie'},
+                ],
+                value=''
+            ),
+        ], className='six columns'),
+        html.Div([
+            html.Label("Seleccionar atributo del eje X:"),
+            dcc.Dropdown(
+                id='x-axis-dropdown',
+                value=''
+            ),
+        ], className='two columns'),
+        html.Div([
+            html.Label("Seleccionar atributo del eje Y:"),
+            dcc.Dropdown(
+                id='y-axis-dropdown',
+                value=''
+            ),
+        ], className='two columns'),
+    ], className='row', style={'marginBottom': '50px'}),
     
     # Gráfico dinámico
     dcc.Graph(id='dynamic-plot'),
@@ -192,7 +195,7 @@ def update_output(contents):
      Input('y-axis-dropdown', 'value')],
 )
 def update_dynamic_plot(selected_grafico, selected_x, selected_y):
-    if selected_grafico == 'grouped-bar-bi':
+    if selected_grafico == '' or selected_x=="" or selected_y=="":
         raise PreventUpdate
     
     if selected_grafico == 'scatter':
@@ -202,12 +205,10 @@ def update_dynamic_plot(selected_grafico, selected_x, selected_y):
     elif selected_grafico == 'line':
         df_grouped = df.groupby(selected_x).agg({selected_y: 'mean'}).reset_index()
         fig = px.line(df_grouped, x=selected_x, y=selected_y, markers=True)
-    elif selected_grafico == 'bar':
-        fig = px.bar(df, x=selected_x, y=selected_y)
     elif selected_grafico == 'pie':
         fig = px.pie(df, names=selected_x, values=selected_y)
     else:
-        fig = px.scatter(df, x=selected_x, y=selected_y)
+        raise PreventUpdate
 
     fig.update_layout(
         xaxis_title=f'{selected_x}',
@@ -256,10 +257,14 @@ def update_grouped_bar_bi_plot(selected_x, selected_subgroup):
     if not all([selected_x, selected_subgroup]):
         raise PreventUpdate
 
-    fig = px.bar(df, x=selected_x, color=selected_subgroup, barmode='group',
+    # Ordenar los datos por el subgrupo seleccionado
+    df_sorted = df.sort_values(by=selected_subgroup)
+    
+    fig = px.bar(df_sorted, x=selected_x, color=selected_subgroup, barmode='group',
                  labels={selected_x: selected_x, 'count': 'Frecuencia'},
                  title=f'Gráfico de Barras Agrupadas (Bivariado): {selected_x} vs. {selected_subgroup}')
     return fig
+
 # Ejecutar la aplicación
 if __name__ == '__main__':
     app.run_server(debug=True)
