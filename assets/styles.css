@@ -1,0 +1,35 @@
+/* styles.css */
+h1 {
+    color: black;
+    font-family: Arial;
+    font-size: 40px;
+    margin-top: 20px;
+}
+
+#upload-data {
+    margin-bottom: 50px;
+    color: gray;
+    border: 2px dashed #aaa;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+#abrir-informe-button {
+    background-color: #4CAF50; /* Color de fondo */
+    border: none; /* Sin borde */
+    color: white; /* Color del texto */
+    padding: 20px 40px; /* Relleno */
+    text-align: center; /* Texto centrado */
+    text-decoration: none; /* Sin decoración de texto */
+    display: inline-block; /* Mostrar como bloque en línea */
+    font-size: 24px; /* Tamaño de la fuente */
+    margin: auto; /* Margen automático (centrado horizontalmente) */
+    margin-top: 20px; /* Margen superior */
+    border-radius: 8px; /* Bordes redondeados */
+    cursor: pointer; /* Cambiar el cursor al pasar el ratón */
+}
+
+#abrir-informe-button:hover {
+    background-color: #45a049; /* Cambiar color de fondo en el hover */
+}
+
