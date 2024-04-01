@@ -1,20 +1,29 @@
 import dash
-from dash import dcc, html, Input, Output
+from dash import dcc, html, Input, Output, State
 import pandas as pd
 import plotly.express as px
 import io
 import base64
 from dash.exceptions import PreventUpdate
-
-# Crear una aplicación Dash
-app = dash.Dash(__name__)
+from ydata_profiling import ProfileReport
+import webbrowser
+import dash_bootstrap_components as dbc
+external_stylesheets = ['assets/styles.css']
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 # Inicializar df como un DataFrame vacío
+
 df = pd.DataFrame()
 
+
 # Diseño de la aplicación
+
+
+
 app.layout = html.Div([
-    html.H1("Gráficos Interactivos con Atributos Seleccionables", style={'textAlign': 'center'}),
+
+    html.H1("Análisis descriptivo y exploratorio con Atributos Seleccionables", style={'textAlign': 'center'}),
+   
     
     # Sección de carga de datos
     html.Div([
@@ -24,7 +33,7 @@ app.layout = html.Div([
             multiple=False
         ),
         html.Div(id='output-data-upload')
-    ], style={'marginBottom': '50px'}),
+    ]),
     
     # Dropdowns para la selección de atributos y tipos de gráfico
     html.Div([
@@ -153,16 +162,34 @@ app.layout = html.Div([
     
     # Gráfico de Barras Agrupadas (Bivariado)
     dcc.Graph(id='grouped-bar-bi-plot'),
+    dcc.Dropdown(
+        id='dropdown-column',
+        options=[{'label': col, 'value': col} for col in df.columns],
+        value=""  # Columna predeterminada
+    ),
+    html.Div(id='output-container'),
+    html.Button('Confirmar cambios', id='confirm-button', n_clicks=0),
+    html.Div(id='output-container2'),
+
+    
+
+
+
+    html.Button("Abrir Informe", id="abrir-informe-button")
+
+
 ])
 
 # Función para cargar los datos desde un archivo CSV
 def parse_contents(contents):
+    global checkboxes
     content_type, content_string = contents.split(',')
-
+    #global checkboxes
     decoded = base64.b64decode(content_string)
     global df  # Hacer referencia a la variable global df
     df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
     options = [{'label': col, 'value': col} for col in df.columns]
+
     return options
 
 # Callback para cargar datos cuando se carga un archivo CSV y actualizar los dropdowns
@@ -178,6 +205,7 @@ def parse_contents(contents):
                Output('3d-y-dropdown', 'options'),
                Output('3d-z-dropdown', 'options'),
                Output('grouped-bar-x-dropdown', 'options'),
+               Output('dropdown-column', 'options'),
                Output('grouped-bar-subgroup-dropdown', 'options')],
               [Input('upload-data', 'contents')])
 def update_output(contents):
@@ -185,7 +213,7 @@ def update_output(contents):
         raise PreventUpdate
     else:
         options = parse_contents(contents)
-        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options, options, options, options, options, options
+        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options, options,options, options, options, options, options
 
 # Callback para actualizar el gráfico dinámico
 @app.callback(
@@ -265,7 +293,68 @@ def update_grouped_bar_bi_plot(selected_x, selected_subgroup):
                  title=f'Gráfico de Barras Agrupadas (Bivariado): {selected_x} vs. {selected_subgroup}')
     return fig
 
-# Ejecutar la aplicación
+
+@app.callback(
+    Output("abrir-informe-button", "n_clicks"),
+    Input("abrir-informe-button", "n_clicks")
+)
+def abrir_informe(n_clicks):
+    if n_clicks:
+        profile = ProfileReport(df, title="Pandas Profiling Report")
+        profile.to_file("tu_informe.html")
+        # Abre el informe en una nueva ventana o pestaña
+        webbrowser.open_new_tab("tu_informe.html")
+
+    # Si no se ha hecho clic en el botón, no hace nada
+    return None
+# Función para generar el contenido dinámico basado en el DataFrame
+def generate_table(column):
+    column_values = df[column].unique()
+    rows = []
+    for value in column_values:
+        row = html.Div([
+            html.Div(value, style={'display': 'inline-block', 'width': '30%'}),
+            dcc.Input(id={'type': 'input', 'index': value}, value=value, type='text', style={'display': 'inline-block', 'width': '60%'})
+        ])
+        rows.append(row)
+    return rows
+# Callback para actualizar la tabla según la columna seleccionada
+@app.callback(
+    Output('output-container', 'children'),
+    [Input('dropdown-column', 'value')]
+)
+def update_table(column):
+    if column is None:
+        return []
+    else:
+        return generate_table(column)
+
+# Callback para actualizar el DataFrame con los cambios
+@app.callback(
+    Output('output-container2', 'children'),
+    [Input('confirm-button', 'n_clicks'),
+     Input('dropdown-column', 'value')],
+   [State('output-container', 'children')]
+  
+)
+def update_df(n_clicks,columna, children):
+    
+    if n_clicks > 0:
+        print(df)
+        updated_df = df.copy()  # Copia del DataFrame para no modificar el original
+        for child in children:
+            print(child)
+            print("gee")
+          
+            input = child["props"]["children"][0]["props"]["children"]  # Obtener el ID del input
+            updated_df.loc[updated_df[columna] == input, columna] = int(child["props"]["children"][1]["props"]["value"])
+        # Actualizar el DataFrame original con los cambios
+        df.update(updated_df)
+        print(df)
+        return 'Cambios confirmados y DataFrame actualizado.'
+    else:
+        return ''
+
 if __name__ == '__main__':
     app.run_server(debug=True)
 
