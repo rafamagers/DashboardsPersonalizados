@@ -1,11 +1,94 @@
 /* styles.css */
 h1 {
-    color: black;
-    font-family: Arial;
-    font-size: 40px;
-    margin-top: 20px;
+    color: #fff; /* Color de texto blanco */
+    font-family: 'Arial Black', sans-serif; /* Fuente negrita */
+    font-size: 48px; /* Tamaño de fuente grande */
+    margin-top: 20px; /* Margen superior */
+    text-align: center; /* Alineación centrada */
+    text-transform: uppercase; /* Convertir el texto a mayúsculas */
+    letter-spacing: 2px; /* Espaciado entre letras */
+    margin-bottom: 40px; /* Margen inferior */
+    background-color: #007bff; /* Color de fondo azul */
+    padding: 20px; /* Añadir espacio alrededor del texto */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra suave */
+}
+body {
+    background-color: #f8f9fa; /* Color de fondo gris claro */
 }
 
+/* Estilos para la sección de carga de datos */
+.upload-section {
+    margin: auto; /* Centrar la sección horizontalmente */
+    max-width: 600px; /* Ancho máximo de la sección */
+    padding: 20px; /* Añadir relleno */
+    background-color: #f9f9f9; /* Color de fondo */
+}
+
+.upload-button {
+    background-color: #007bff;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.upload-container {
+    display: flex; /* Utilizar flexbox */
+    justify-content: center; /* Centrar horizontalmente */
+}
+
+.upload-button:hover {
+    background-color: #0056b3;
+}
+
+.upload-instructions {
+    margin-top: 10px;
+    color: #555;
+    font-style: italic; /* Texto en cursiva */
+    text-align: center; /* Centrar texto horizontalmente */
+}
+.upload-text {
+    font-weight: bold; /* Texto en negrita */
+}
+
+/* Estilos para los dropdowns */
+.dropdown-container {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.dropdown-item {
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+/* Estilos para las etiquetas de los dropdowns */
+.dropdown-label {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+/* Estilos para los dropdowns */
+.dropdown {
+    width: 100%;
+}
+.title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10px;
+    background-color: #69c8ff; /* Color de fondo para el título */
+    padding: 10px; /* Añadir relleno para separación */
+}
+
+.subtitle {
+    font-size: 20px;
+    font-weight: bold;
+    color: #282828;
+    margin-bottom: 10px;
+    background-color: #eaeaea; /* Color de fondo para el subtítulo */
+    padding: 8px; /* Añadir relleno para separación */
+}
 #upload-data {
     margin-bottom: 50px;
     color: gray;
