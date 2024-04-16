@@ -14,8 +14,13 @@ from sklearn.preprocessing import StandardScaler
 import seaborn as sns
 import webbrowser
 import dash_bootstrap_components as dbc
-external_stylesheets = ['assets/styles.css']
+# Carga del archivo CSS externo
+external_stylesheets=['styles.css']
+#external_stylesheets = ['https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css', 'styles.css']
+
+# Inicialización de la aplicación Dash
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
 
 # Inicializar df como un DataFrame vacío
 
@@ -31,50 +36,51 @@ app.layout = html.Div([
 
     html.H1("Análisis descriptivo y exploratorio con Atributos Seleccionables", style={'textAlign': 'center'}),
    
-    
     # Sección de carga de datos
     html.Div([
-        dcc.Upload(
-            id='upload-data',
-            children=html.Div(['Arrastra y suelta o ', html.A('selecciona un archivo CSV')]),
-            multiple=False
-        ),
-        html.Div(id='output-data-upload')
-    ]),
-    
+        html.Div([
+            dcc.Upload(
+                id='upload-data',
+                children=html.Div([
+                    html.Span('Arrastra y suelta o ', className='upload-text'),  # Texto mejorado visualmente
+                    html.A('Selecciona un archivo CSV', className="upload-button")
+                ]),
+                multiple=False
+            ),
+        ], className='upload-container'),  # Aplicar clase de contenedor centrado
+        html.Div(id='output-data-upload', children= [html.P(f'Primero carga tu archivo CSV.')],className='upload-instructions')
+    ], className='upload-section'),
+
+        # Título y subtítulo
+    html.H2("Análisis Descriptivo", className="title"),
+    html.H3("Gráficos Univariados", className="subtitle"),
     # Dropdowns para la selección de atributos y tipos de gráfico
     html.Div([
         html.Div([
-            html.Label("Seleccionar tipo de gráfico:"),
+            html.Label("Seleccionar tipo de gráfico:", className="dropdown-label"),
             dcc.Dropdown(
                 id='tipo-grafico-dropdown',
                 options=[
-                    {'label': 'Diagrama de puntos', 'value': 'scatter'},
-                    {'label': 'Histograma (SUMA)', 'value': 'histogram'},
-                    {'label': 'Polígono de Promedios', 'value': 'line'},
-                    {'label': 'Gráfico de Torta (SUMA)', 'value': 'pie'},
+                    
+                    {'label': 'Diagrama de barra', 'value': 'histogram'},
+                    
+                    {'label': 'Gráfico de Torta', 'value': 'pie'},
                 ],
-                value=''
+                value='',
+                className="dropdown"
             ),
-        ], className='six columns'),
+        ], className='dropdown-item'),
         html.Div([
-            html.Label("Seleccionar atributo del eje X:"),
+            html.Label("Seleccionar atributo del eje X:", className="dropdown-label"),
             dcc.Dropdown(
                 id='x-axis-dropdown',
-                value=''
+                value='',
+                className="dropdown"
             ),
-        ], className='two columns'),
-        html.Div([
-            html.Label("Seleccionar atributo del eje Y:"),
-            dcc.Dropdown(
-                id='y-axis-dropdown',
-                value=''
-            ),
-        ], className='two columns'),
-    ], className='row', style={'marginBottom': '50px'}),
-    
+        ], className='dropdown-item'),
+    ], className='dropdown-container', style={'marginBottom': '50px'}),
     # Gráfico dinámico
-    dcc.Graph(id='dynamic-plot'),
+    dcc.Graph(id='univariado-plot'),
     
     # Sección para Bubble Chart
     html.Hr(),  # Línea horizontal para separar las secciones
@@ -225,7 +231,6 @@ def parse_contents(contents):
 # Callback para cargar datos cuando se carga un archivo CSV y actualizar los dropdowns
 @app.callback([Output('output-data-upload', 'children'),
                Output('x-axis-dropdown', 'options'),
-               Output('y-axis-dropdown', 'options'),
                Output('bubble-x-dropdown', 'options'),
                Output('bubble-y-dropdown', 'options'),
                Output('bubble-size-dropdown', 'options'),
@@ -244,35 +249,30 @@ def update_output(contents):
         raise PreventUpdate
     else:
         options = parse_contents(contents)
-        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options,options, options, options, options, options, options, options,options, options, options, options, options
+        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options, options,options, options, options, options, options
 
 # Callback para actualizar el gráfico dinámico
 @app.callback(
-    Output('dynamic-plot', 'figure'),
+    Output('univariado-plot', 'figure'),
     [Input('tipo-grafico-dropdown', 'value'),
-     Input('x-axis-dropdown', 'value'),
-     Input('y-axis-dropdown', 'value')],
+     Input('x-axis-dropdown', 'value')],
 )
-def update_dynamic_plot(selected_grafico, selected_x, selected_y):
-    if selected_grafico == '' or selected_x=="" or selected_y=="":
+def update_univariado(selected_grafico, selected_x):
+    if selected_grafico == '' or selected_x=="":
         raise PreventUpdate
-    
-    if selected_grafico == 'scatter':
-        fig = px.scatter(df, x=selected_x, y=selected_y)
-    elif selected_grafico == 'histogram':
-        fig = px.histogram(df, x=selected_x, y=selected_y, marginal="rug", nbins=20)
-    elif selected_grafico == 'line':
-        df_grouped = df.groupby(selected_x).agg({selected_y: 'mean'}).reset_index()
-        fig = px.line(df_grouped, x=selected_x, y=selected_y, markers=True)
+    counts = df[selected_x].value_counts().reset_index()
+    counts.columns = ['x', 'count']
+    if selected_grafico == 'histogram':
+        fig = px.bar(counts, x='x', y='count', labels={'x': selected_x, 'count': 'Cantidad'})
     elif selected_grafico == 'pie':
-        fig = px.pie(df, names=selected_x, values=selected_y)
+        fig = px.pie(counts, names='x', values='count', title="Diagrama de Pie", labels={'x': selected_x, 'count': 'Cantidad'})
     else:
         raise PreventUpdate
 
     fig.update_layout(
         xaxis_title=f'{selected_x}',
-        yaxis_title=f'{selected_y}',
-        title=f'{selected_grafico.capitalize()}: {selected_y} vs. {selected_x}'
+
+        title=f'{selected_grafico.capitalize()}: {selected_x}'
     )
     return fig
 
