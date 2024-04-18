@@ -14,6 +14,8 @@ from sklearn.preprocessing import StandardScaler
 import seaborn as sns
 import webbrowser
 import dash_bootstrap_components as dbc
+from collections import defaultdict
+
 # Carga del archivo CSS externo
 external_stylesheets=['styles.css']
 #external_stylesheets = ['https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css', 'styles.css']
@@ -81,45 +83,113 @@ app.layout = html.Div([
     ], className='dropdown-container', style={'marginBottom': '50px'}),
     # Gráfico dinámico
     dcc.Graph(id='univariado-plot'),
-    
+    html.H3("Gráficos Bivariados", className="subtitle"),
+    # Dropdowns para la selección de atributos y tipos de gráfico
+    html.Div([
+        html.Div([
+            html.Label("Seleccionar tipo de gráfico:", className="dropdown-label"),
+            dcc.Dropdown(
+                id='tipo-grafico2-dropdown',
+                options=[
+                    
+                    {'label': 'Diagrama de Polígono (Promedio)', 'value': 'polig'},
+                    
+                    {'label': 'Gráfico de barra bivariado', 'value': 'bibar'},
+                ],
+                value='',
+                className="dropdown"
+            ),
+        ], className='dropdown-item'),
+        html.Div([
+            html.Label("Seleccionar atributo del eje X:", className="dropdown-label"),
+            dcc.Dropdown(
+                id='x-axis-dropdown2',
+                value='',
+                className="dropdown"
+            ),
+        ], className='dropdown-item'),
+        html.Div([
+            html.Label("Seleccionar Subrupo del eje X:", className="dropdown-label"),
+            dcc.Dropdown(
+                id='x-axis-dropdown3',
+                value='',
+                className="dropdown"
+            ),
+        ], className='dropdown-item'),
+    ], className='dropdown-container', style={'marginBottom': '50px'}),
+    # Gráfico de Barras Agrupadas (Bivariado)
+    dcc.Graph(id='bi-plot'),
+    html.H3("Otros Gráficos", className="subtitle"),
+    # Dropdowns para la selección de atributos y tipos de gráfico
+    html.Div([
+        html.Div([
+            html.Label("Seleccionar tipo de gráfico:", className="dropdown-label"),
+            dcc.Dropdown(
+                id='tipo-grafico3-dropdown',
+                options=[
+                    
+                    {'label': 'Gráfico de radios o araña', 'value': 'araña'},
+                    
+                    {'label': 'Gráfico de multi barras', 'value': 'multibar'},
+                ],
+                value='',
+                className="dropdown"
+            ),
+        ], className='dropdown-item'),
+        html.Div([
+            html.Label("Seleccionar el conjunto de atributos:", className="dropdown-label"),
+            dcc.Dropdown(
+                id='x-axis-dropdown4',
+                value='',
+                className="dropdown"
+            ),
+        ], className='dropdown-item'),
+    ], className='dropdown-container', style={'marginBottom': '50px'}),
+    # Gráfico de Barras Agrupadas (Bivariado)
+    dcc.Graph(id='multi-plot'),
     # Sección para Bubble Chart
     html.Hr(),  # Línea horizontal para separar las secciones
     
-    html.H2("Bubble Chart Configurable"),
+    html.H3("Bubble Chart Configurable", className="subtitle"),
     
     # Dropdown para seleccionar la dimensión X del Bubble Chart
     html.Label("Seleccionar dimensión X:"),
     dcc.Dropdown(
         id='bubble-x-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Dropdown para seleccionar la dimensión Y del Bubble Chart
     html.Label("Seleccionar dimensión Y:"),
     dcc.Dropdown(
         id='bubble-y-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Dropdown para seleccionar la dimensión del tamaño de las burbujas
     html.Label("Seleccionar dimensión del tamaño de las burbujas:"),
     dcc.Dropdown(
         id='bubble-size-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Dropdown para seleccionar la dimensión del color de las burbujas
     html.Label("Seleccionar dimensión del color de las burbujas:"),
     dcc.Dropdown(
         id='bubble-color-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Dropdown para seleccionar la dimensión de la etiqueta de las burbujas
     html.Label("Seleccionar dimensión de la etiqueta de las burbujas:"),
     dcc.Dropdown(
         id='bubble-label-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Gráfico de Burbujas
@@ -128,27 +198,30 @@ app.layout = html.Div([
     # Sección para el gráfico en 3D
     html.Hr(),  # Línea horizontal para separar las secciones
     
-    html.H2("Gráfico en 3D Configurable"),
+    html.H3("Gráfico en 3D Configurable", className="subtitle"),
     
     # Dropdown para seleccionar la dimensión X del gráfico 3D
     html.Label("Seleccionar dimensión X (3D):"),
     dcc.Dropdown(
         id='3d-x-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Dropdown para seleccionar la dimensión Y del gráfico 3D
     html.Label("Seleccionar dimensión Y (3D):"),
     dcc.Dropdown(
         id='3d-y-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Dropdown para seleccionar la dimensión Z del gráfico 3D
     html.Label("Seleccionar dimensión Z (3D):"),
     dcc.Dropdown(
         id='3d-z-dropdown',
-        value=''
+        value='',
+        className="dropdown"
     ),
     
     # Gráfico en 3D
@@ -157,43 +230,20 @@ app.layout = html.Div([
     # Sección para el gráfico de barras agrupadas (bivariado)
     html.Hr(),  # Línea horizontal para separar las secciones
     
-    html.H2("Gráfico de Barras Agrupadas (Bivariado)"),
-    
-    # Dropdown para seleccionar el atributo del eje X en el gráfico de barras agrupadas
-    html.Label("Seleccionar atributo del eje X:"),
-    dcc.Dropdown(
-        id='grouped-bar-x-dropdown',
-        value=''
-    ),
-    
-    # Dropdown para seleccionar el atributo del subgrupo en el gráfico de barras agrupadas
-    html.Label("Seleccionar atributo del subgrupo del eje X:"),
-    dcc.Dropdown(
-        id='grouped-bar-subgroup-dropdown',
-        value=''
-    ),
-    
-    # Gráfico de Barras Agrupadas (Bivariado)
-    dcc.Graph(id='grouped-bar-bi-plot'),
 
-
-
+    html.H2("Análisis Exploratorio", className="title"),
+    html.H3("Codificación de datos manual (Solo cadena a numérica)", className="subtitle"),
     dcc.Dropdown(
         id='dropdown-column',
         options=[{'label': col, 'value': col} for col in df.columns],
-        value=""  # Columna predeterminada
+        value="",  # Columna predeterminada
+        className="dropdown"
     ),
     html.Div(id='output-container'),
-    html.Button('Confirmar cambios', id='confirm-button', n_clicks=0),
+    html.Button('Confirmar cambios', id='confirm-button', n_clicks=0, className='confirm-button'),
     html.Div(id='output-container2'),
 
-    
-
-
-
-    html.Button("Abrir Informe", id="abrir-informe-button"),
-    html.H1("Visualizar y seleccionar columnas"),
-    
+    html.H3("Visualizar y seleccionar columnas", className="subtitle"),
     # Checklist para seleccionar columnas
     html.Div([
         dcc.Checklist(
@@ -204,9 +254,18 @@ app.layout = html.Div([
         ),
     ]),
     html.Div(id='nada'),
-    html.H1('Visualización de Análisis Factorial Exploratorio'),
-    dcc.Input(id='input-number', type='number', value=3, min=1, max=10, step=1),
-    html.Button("Realizar análisis factorial", id="analisisfactorial"),
+    html.H3("Generar informe de análisis exploratorio para variables seleccionadas", className="subtitle"),
+
+
+    html.Button("Abrir Informe", id="abrir-informe-button"),
+    
+    
+    html.H3('Visualización de Análisis Factorial Exploratorio', className="subtitle"),
+    html.Div([
+        html.H3('Elija el número de factores que desea: ', style={'display': 'inline-block', 'margin-right': '10px'}),
+        dcc.Input(id='input-number', type='number', value=3, min=1, max=10, step=1, style={'display': 'inline-block'}),
+    ]),
+    html.Button("Realizar análisis factorial", id="analisisfactorial", className='confirm-button'),
     html.Div([
         dcc.Graph(id='factor_loading_plot'),
         dcc.Graph(id='eigenvalue_plot'),
@@ -227,9 +286,25 @@ def parse_contents(contents):
     options = [{'label': col, 'value': col} for col in df.columns]
 
     return options
+def agrupar_codigos(codigos):
+    grupos = defaultdict(list)
 
+    for codigo in codigos:
+        # Obtener la parte común hasta el guion
+        parte_comun = codigo['label'].split('-')[0]
+
+        # Agregar el código al grupo correspondiente
+        grupos[parte_comun].append(codigo)
+
+    # Generar el arreglo final solo para grupos con más de un código
+    arreglo_final = [{'label': '/'.join([cod['label'] for cod in codigos]),
+                      'value': '/'.join([cod['value'] for cod in codigos])}
+                     for codigos in grupos.values() if len(codigos) > 1]
+
+    return arreglo_final
 # Callback para cargar datos cuando se carga un archivo CSV y actualizar los dropdowns
 @app.callback([Output('output-data-upload', 'children'),
+               Output('x-axis-dropdown4', 'options'),
                Output('x-axis-dropdown', 'options'),
                Output('bubble-x-dropdown', 'options'),
                Output('bubble-y-dropdown', 'options'),
@@ -240,16 +315,18 @@ def parse_contents(contents):
                Output('3d-y-dropdown', 'options'),
                Output('3d-z-dropdown', 'options'),
                Output('column-selector', 'options'),
-               Output('grouped-bar-x-dropdown', 'options'),
+               Output('x-axis-dropdown2', 'options'),
                Output('dropdown-column', 'options'),
-               Output('grouped-bar-subgroup-dropdown', 'options')],
+               Output('x-axis-dropdown3', 'options')],
               [Input('upload-data', 'contents')])
 def update_output(contents):
     if contents is None:
         raise PreventUpdate
     else:
         options = parse_contents(contents)
-        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')], options, options, options, options, options, options, options, options,options, options, options, options, options
+        print(options)
+        opcionesespeciales = agrupar_codigos(options)
+        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')],opcionesespeciales, options, options, options, options, options, options, options, options,options, options, options, options, options
 
 # Callback para actualizar el gráfico dinámico
 @app.callback(
@@ -308,22 +385,192 @@ def update_3d_plot(selected_x, selected_y, selected_z):
     return fig
 # Callback para actualizar el gráfico de Barras Agrupadas (Bivariado)
 @app.callback(
-    Output('grouped-bar-bi-plot', 'figure'),
-    [Input('grouped-bar-x-dropdown', 'value'),
-     Input('grouped-bar-subgroup-dropdown', 'value')],
+    Output('bi-plot', 'figure'),
+    [Input('tipo-grafico2-dropdown', 'value'),
+     Input('x-axis-dropdown2', 'value'),
+     Input('x-axis-dropdown3', 'value')],
 )
-def update_grouped_bar_bi_plot(selected_x, selected_subgroup):
-    if not all([selected_x, selected_subgroup]):
+def update_bivariado(selected_grafico, selected_x, subgroup):
+    if selected_grafico == '' or selected_x=="" or subgroup=="":
+        raise PreventUpdate
+    
+    
+    if selected_grafico == 'bibar':
+        df_sorted = df.sort_values(by=subgroup)
+        fig = px.bar(df_sorted, x=selected_x, color=subgroup, barmode='group',
+                 labels={selected_x: selected_x, 'count': 'Frecuencia'},
+                 title=f'Gráfico de Barras Agrupadas (Bivariado): {selected_x} vs. {subgroup}')
+    elif selected_grafico == 'polig':
+        df_grouped = df.groupby(selected_x).agg({subgroup: 'mean'}).reset_index()
+        fig = px.line(df_grouped, x=selected_x, y=subgroup, markers=True)
+    else:
         raise PreventUpdate
 
-    # Ordenar los datos por el subgrupo seleccionado
-    df_sorted = df.sort_values(by=selected_subgroup)
-    
-    fig = px.bar(df_sorted, x=selected_x, color=selected_subgroup, barmode='group',
-                 labels={selected_x: selected_x, 'count': 'Frecuencia'},
-                 title=f'Gráfico de Barras Agrupadas (Bivariado): {selected_x} vs. {selected_subgroup}')
-    return fig
+    fig.update_layout(
+        xaxis_title=f'{selected_x}',
 
+        title=f'{selected_grafico.capitalize()}: {selected_x}'
+    )
+    return fig
+# Función para calcular las medias de las columnas
+def calcular_medias(df, nombres_columnas):
+    medias = []
+    for columna in nombres_columnas:
+        media_columna = df[columna].mean()
+        medias.append(media_columna)
+    return medias
+
+def calcular_porcentajes_ocurrencias(df, nombres_columnas):
+    porcentajes = []
+    for columna in nombres_columnas:
+        porcentajes_columna = []
+        # Calcular la cantidad total de valores en la columna
+        total_valores = df[columna].count()
+        # Calcular el porcentaje de ocurrencia de cada valor (1, 2, 3, 4, 5)
+        for valor in range(1, 6):
+            porcentaje = round(df[columna].value_counts(normalize=True).get(valor, 0) * 100, 2)
+            porcentajes_columna.append(porcentaje)
+        porcentajes.append(porcentajes_columna)
+    # Calcular el promedio de los porcentajes en cada arreglo de porcentajes
+    promedios_porcentajes = [round(sum(columna) / len(columna), 2) for columna in zip(*porcentajes)]
+    porcentajes.append(promedios_porcentajes)
+    return porcentajes
+# Callback para actualizar el gráfico de Barras Agrupadas (Bivariado)
+@app.callback(
+    Output('multi-plot', 'figure'),
+    [Input('tipo-grafico3-dropdown', 'value'),
+     Input('x-axis-dropdown4', 'value')],
+)
+def update_multivariado(selected_grafico, selected_x):
+    if selected_grafico == '' or selected_x=="" :
+        raise PreventUpdate
+    
+    columnas = selected_x.split("/")
+
+    medias_columnas = calcular_medias(df, columnas)
+    print(medias_columnas)
+
+# Crear DataFrame auxiliar con nombres de columnas y medias
+    if selected_grafico == 'araña':
+        fig = go.Figure(data=go.Scatterpolar(
+        r=medias_columnas,
+        theta=columnas,
+        fill='toself'
+        ))
+
+        fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+            visible=True,
+            tickvals=[1,2,3,4,5],
+            range=[1,5]
+            ),
+        ),
+        showlegend=False
+        )
+
+
+
+    elif selected_grafico == 'multibar':
+        top_labels = ['Mucho peor', 'Peor', 'Neutral', 'Mejor',
+              'Mucho mejor']
+
+        colors = ['rgba(255, 51, 51, 0.8)', 'rgba(255, 153, 51, 0.8)',
+                'rgba(255, 230, 51, 0.8)', 'rgba(218, 255, 51, 0.85)',
+                'rgba(119, 255, 51, 1)']
+
+        x_data = calcular_porcentajes_ocurrencias(df, columnas)
+        columnas.append("Promedio: ")
+        y_data = columnas
+
+        fig = go.Figure()
+
+        for i in range(0, len(x_data[0])):
+            for xd, yd in zip(x_data, y_data):
+                fig.add_trace(go.Bar(
+                    x=[xd[i]], y=[yd],
+                    orientation='h',
+                    marker=dict(
+                        color=colors[i],
+                        line=dict(color='rgb(248, 248, 249)', width=1)
+                    )
+                ))
+
+        fig.update_layout(
+            xaxis=dict(
+                showgrid=False,
+                showline=False,
+                showticklabels=False,
+                zeroline=False,
+                domain=[0.15, 1]
+                
+            ),
+            yaxis=dict(
+                showgrid=False,
+                showline=False,
+                showticklabels=False,
+                zeroline=False,
+            ),
+            barmode='stack',
+            paper_bgcolor='rgb(248, 248, 255)',
+            plot_bgcolor='rgb(248, 248, 255)',
+            margin=dict(l=120, r=10, t=140, b=80),
+            showlegend=False,
+            
+        )
+
+        annotations = []
+
+        for yd, xd in zip(y_data, x_data):
+            # labeling the y-axis
+            annotations.append(dict(xref='paper', yref='y',
+                                    x=0.14, y=yd,
+                                    xanchor='right',
+                                    text=str(yd),
+                                    font=dict(family='Arial', size=14,
+                                            color='rgb(67, 67, 67)'),
+                                    showarrow=False, align='right'))
+            # labeling the first percentage of each bar (x_axis)
+            annotations.append(dict(xref='x', yref='y',
+                                    x=xd[0] / 2, y=yd,
+                                    text=str(xd[0]) + '%',
+                                    font=dict(family='Arial', size=14,
+                                            color='rgb(0, 0, 0)'),
+                                    showarrow=False))
+            # labeling the first Likert scale (on the top)
+            if yd == y_data[-1]:
+                annotations.append(dict(xref='x', yref='paper',
+                                        x=xd[0] / 2, y=1.1,
+                                        text=top_labels[0],
+                                        font=dict(family='Arial', size=14,
+                                                color='rgb(67, 67, 67)'),
+                                        showarrow=False))
+            space = xd[0]
+            for i in range(1, len(xd)):
+                    # labeling the rest of percentages for each bar (x_axis)
+                    annotations.append(dict(xref='x', yref='y',
+                                            x=space + (xd[i]/2), y=yd,
+                                            text=str(xd[i]) + '%',
+                                            font=dict(family='Arial', size=14,
+                                                    color='rgb(0, 0, 0)'),
+                                            showarrow=False))
+                    # labeling the Likert scale
+                    if yd == y_data[-1]:
+                        annotations.append(dict(xref='x', yref='paper',
+                                                x=space + (xd[i]/2), y=1.1,
+                                                text=top_labels[i],
+                                                font=dict(family='Arial', size=14,
+                                                        color='rgb(67, 67, 67)'),
+                                                showarrow=False))
+                    space += xd[i]
+        fig.update_layout(annotations=annotations)
+    else:
+        raise PreventUpdate
+
+    fig.update_layout(
+        title=f'{selected_grafico.capitalize()}: {selected_x}'
+    )
+    return fig
 
 @app.callback(
     Output("abrir-informe-button", "n_clicks"),

@@ -55,6 +55,7 @@ body {
 .dropdown-container {
     display: flex;
     flex-wrap: wrap;
+    margin-bottom: 20px;
 }
 
 .dropdown-item {
@@ -70,14 +71,15 @@ body {
 
 /* Estilos para los dropdowns */
 .dropdown {
-    width: 100%;
+    width: 450px;
+    margin-bottom: 20px;
 }
 .title {
     font-size: 24px;
     font-weight: bold;
     color: #333;
     margin-bottom: 10px;
-    background-color: #69c8ff; /* Color de fondo para el título */
+    background-color: hsla(201, 68%, 61%, 0.849); /* Color de fondo para el título */
     padding: 10px; /* Añadir relleno para separación */
 }
 
@@ -89,6 +91,20 @@ body {
     background-color: #eaeaea; /* Color de fondo para el subtítulo */
     padding: 8px; /* Añadir relleno para separación */
 }
+.confirm-button {
+    background-color: hsla(201, 68%, 61%, 0.849); /* Color de fondo verde */
+    color: rgb(8, 8, 8); /* Color del texto blanco */
+    padding: 10px 20px; /* Relleno del botón */
+    font-size: 16px; /* Tamaño del texto */
+    border: none; /* Borde */
+    border-radius: 5px; /* Borde redondeado */
+    cursor: pointer; /* Cursor al pasar el ratón */
+    margin-bottom: 20px;
+}
+
+.confirm-button:hover {
+    background-color: #161fd0; /* Cambiar color de fondo al pasar el ratón */
+}
 #upload-data {
     margin-bottom: 50px;
     color: gray;
@@ -98,21 +114,17 @@ body {
 }
 
 #abrir-informe-button {
-    background-color: #4CAF50; /* Color de fondo */
-    border: none; /* Sin borde */
-    color: white; /* Color del texto */
-    padding: 20px 40px; /* Relleno */
-    text-align: center; /* Texto centrado */
-    text-decoration: none; /* Sin decoración de texto */
-    display: inline-block; /* Mostrar como bloque en línea */
-    font-size: 24px; /* Tamaño de la fuente */
-    margin: auto; /* Margen automático (centrado horizontalmente) */
-    margin-top: 20px; /* Margen superior */
-    border-radius: 8px; /* Bordes redondeados */
-    cursor: pointer; /* Cambiar el cursor al pasar el ratón */
+    background-color: #007bff; /* Color de fondo azul */
+    color: white; /* Color del texto blanco */
+    padding: 15px 30px; /* Ajusta el relleno del botón para que sea más grande */
+    font-size: 20px; /* Aumenta el tamaño del texto */
+    border: none; /* Borde */
+    border-radius: 8px; /* Borde redondeado */
+    cursor: pointer; /* Cursor al pasar el ratón */
+    display: block; /* Hacer que el botón sea un bloque */
+    margin: 0 auto; /* Centrar horizontalmente */
 }
 
 #abrir-informe-button:hover {
-    background-color: #45a049; /* Cambiar color de fondo en el hover */
+    background-color: #0056b3; /* Cambiar color de fondo al pasar el ratón */
 }
-
