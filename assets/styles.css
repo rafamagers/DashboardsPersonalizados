@@ -71,7 +71,7 @@ body {
 
 /* Estilos para los dropdowns */
 .dropdown {
-    width: 450px;
+    width: 'auto';
     margin-bottom: 20px;
 }
 .title {
