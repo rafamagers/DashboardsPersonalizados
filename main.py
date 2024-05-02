@@ -131,6 +131,8 @@ app.layout = html.Div([
                     {'label': 'Gráfico de radios o araña', 'value': 'araña'},
                     
                     {'label': 'Gráfico de multi barras', 'value': 'multibar'},
+
+                    {'label': 'Gráfico de cajas', 'value': 'cajas'},
                 ],
                 value='',
                 className="dropdown"
@@ -254,6 +256,8 @@ app.layout = html.Div([
         ),
     ]),
     html.Div(id='nada'),
+    html.Button('Seleccionar todas', id='select-all-button', n_clicks=0),
+    html.Button('Deseleccionar todas', id='deselect-all-button', n_clicks=0),
     html.H3("Generar informe de análisis exploratorio para variables seleccionadas", className="subtitle"),
 
 
@@ -324,9 +328,9 @@ def update_output(contents):
         raise PreventUpdate
     else:
         options = parse_contents(contents)
-        print(options)
+        #selected_values = [option['value'] for option in options]
         opcionesespeciales = agrupar_codigos(options)
-        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')],opcionesespeciales, options, options, options, options, options, options, options, options,options, options, options, options, options
+        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')],opcionesespeciales,  options, options, options, options, options, options, options, options,options, options, options, options, options
 
 # Callback para actualizar el gráfico dinámico
 @app.callback(
@@ -380,8 +384,15 @@ def update_bubble_plot(selected_x, selected_y, selected_size, selected_color, se
 def update_3d_plot(selected_x, selected_y, selected_z):
     if not all([selected_x, selected_y, selected_z]):
         raise PreventUpdate
+    else:
+        counts = df.groupby([selected_x, selected_y, selected_z]).size().reset_index(name='count')
 
-    fig = px.scatter_3d(df, x=selected_x, y=selected_y, z=selected_z, title=f'Gráfico en 3D: {selected_x} vs. {selected_y} vs. {selected_z}')
+        # Crea una nueva columna 'size' que represente el tamaño de cada punto basado en el recuento
+        counts['size'] = counts['count'] * 10  # Ajusta el multiplicador según tus necesidades
+        
+        # Crea el gráfico 3D con Plotly Express
+        fig = px.scatter_3d(counts, x=selected_x, y=selected_y, z=selected_z, size='size',
+                    title=f'Gráfico en 3D: {selected_x} vs. {selected_y} vs. {selected_z}')
     return fig
 # Callback para actualizar el gráfico de Barras Agrupadas (Bivariado)
 @app.callback(
@@ -468,6 +479,14 @@ def update_multivariado(selected_grafico, selected_x):
         ),
         showlegend=False
         )
+    elif selected_grafico == 'cajas':
+        fig = go.Figure()
+        for media in columnas:
+            # Use x instead of y argument for horizontal plot
+            fig.add_trace(go.Box(x=df[media], name=media))
+        for media in columnas:
+            fig.add_trace(go.Scatter(x=[np.mean(df[media])], y=[media], mode='markers', marker=dict(color='red'), name='Media'))
+
 
 
 
@@ -629,6 +648,33 @@ def update_df(n_clicks,columna, children):
     else:
         return 'No se ha podido actualizar el dataframe (Recuerde que esto es para codificar)'
 
+# Callback para actualizar las opciones del checklist y establecerlas como seleccionadas
+@app.callback(
+    Output('column-selector', 'value'),
+    [
+     Input('select-all-button', 'n_clicks'),
+     Input('deselect-all-button', 'n_clicks')
+    ],
+    
+)
+def update_colmnschacklist(select_all_clicks, deselect_all_clicks):
+    # Verificamos cuál botón se ha presionado
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    # Si se presionó el botón "Seleccionar todos"
+    if button_id == 'select-all-button' and select_all_clicks:
+        return list(df.columns)
+    
+    # Si se presionó el botón "Deseleccionar todos"
+    elif button_id == 'deselect-all-button' and deselect_all_clicks:
+        return []
+    
+    # Si no se presionó ninguno de los botones, evitamos la actualización
+    raise PreventUpdate
 
 # Callback para actualizar el DataFrame filtrado
 @app.callback(
@@ -638,7 +684,7 @@ def update_df(n_clicks,columna, children):
 def update_filtered_data(selected_columns):
     global filtered_df
     filtered_df = df[selected_columns]
-    return filtered_df.to_dict('records')
+    return ""
 
 def generate_plots(loadings, eigenvalues, explained_variance):
     # Gráfico de cargas factoriales
