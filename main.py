@@ -301,9 +301,9 @@ def agrupar_codigos(codigos):
         grupos[parte_comun].append(codigo)
 
     # Generar el arreglo final solo para grupos con más de un código
-    arreglo_final = [{'label': '/'.join([cod['label'] for cod in codigos]),
+    arreglo_final = [{'label': clave,
                       'value': '/'.join([cod['value'] for cod in codigos])}
-                     for codigos in grupos.values() if len(codigos) > 1]
+                     for clave,codigos in grupos.items() if len(codigos) > 1]
 
     return arreglo_final
 # Callback para cargar datos cuando se carga un archivo CSV y actualizar los dropdowns
