@@ -1,8 +1,20 @@
 # Dashboards Personalizados
-Esto es un proyecto para explorar las herramientas que ofrecen las librerias de python para visualizar de manera descriptiva los datos de una encuesta en formato .csv y además realizar análisis exploratorio
 
-Instrucciones para ejecutar:
+Este proyecto explora las herramientas que ofrecen las librerías de Python para visualizar datos de una encuesta en formato CSV y para realizar análisis exploratorio.
 
-pip install -r requirements.txt (Solo la primera vez)
+## Requisitos
+
+Para ejecutar este proyecto, necesitas tener Python instalado. Luego, instala las dependencias necesarias con:
+
+```bash
+pip install -r requirements.txt
+```
+Ejecución
+Para ejecutar el proyecto, sigue estos pasos:
+
+Ejecuta el script principal:
+```bash
 python main.py
-Abrir en su navegador: http://127.0.0.1:8050/
+```
+Abre tu navegador web e ingresa la siguiente dirección:
+http://127.0.0.1:8050/
