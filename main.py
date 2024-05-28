@@ -1,251 +1,152 @@
 import dash
-from dash import dcc, html, Input, Output, State, dash_table
+from dash import dcc, html, Input, Output, State
 import pandas as pd
 import plotly.express as px
 import io
 import plotly.graph_objs as go
-import numpy as np
+from plotly.subplots import make_subplots  # Importar make_subplots
 import base64
 from dash.exceptions import PreventUpdate
-from ydata_profiling import ProfileReport
-from factor_analyzer import FactorAnalyzer
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
-import seaborn as sns
-import webbrowser
 import dash_bootstrap_components as dbc
 from collections import defaultdict
-
+import numpy as np
+import plotly.io as pio
+from plotly.graph_objs import Figure
+from ydata_profiling import ProfileReport
+import webbrowser
 # Carga del archivo CSS externo
-external_stylesheets=['styles.css']
-#external_stylesheets = ['https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css', 'styles.css']
-
+external_stylesheets = ['styles.css']
 # Inicialización de la aplicación Dash
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-
 # Inicializar df como un DataFrame vacío
-
 df = pd.DataFrame()
 filtered_df = pd.DataFrame()
-
-
 # Diseño de la aplicación
-
-
-
 app.layout = html.Div([
+    html.H1("Dashboard creator", style={'textAlign': 'center'}),
+    dcc.Tabs([
+        dcc.Tab(label='Descriptive analysis', children=[
+            html.Div([
+                html.Div([
+                    dcc.Upload(
+                        id='upload-data',
+                        children=html.Div([
+                            html.Span('Drag and drop or ', className='upload-text'),
+                            html.A('Choose CSV File', className="upload-button")
+                        ]),
+                        multiple=False
+                    ),
+                ], className='upload-container'),
+                html.Div(id='output-data-upload', children=[html.P('First Upload your CSV File.')], className='upload-instructions')
+            ], className='upload-section'),
 
-    html.H1("Análisis descriptivo y exploratorio con Atributos Seleccionables", style={'textAlign': 'center'}),
-   
-    # Sección de carga de datos
-    html.Div([
-        html.Div([
-            dcc.Upload(
-                id='upload-data',
-                children=html.Div([
-                    html.Span('Arrastra y suelta o ', className='upload-text'),  # Texto mejorado visualmente
-                    html.A('Selecciona un archivo CSV', className="upload-button")
-                ]),
-                multiple=False
-            ),
-        ], className='upload-container'),  # Aplicar clase de contenedor centrado
-        html.Div(id='output-data-upload', children= [html.P(f'Primero carga tu archivo CSV.')],className='upload-instructions')
-    ], className='upload-section'),
+            html.H3("Various Graphics", className="subtitle"),
 
-        # Título y subtítulo
-    html.H2("Análisis Descriptivo", className="title"),
-    html.H3("Gráficos Univariados", className="subtitle"),
+            html.Div([
+                html.Div([
+                    html.Label("Choose your chart:", className="dropdown-label"),
+                    dcc.Dropdown(
+                        id='tipo-grafico-dropdown',
+                        options=[
+                            {'label': 'Bar Chart', 'value': 'histogram'},
+                            {'label': 'Pie Chart', 'value': 'pie'},
+                        ],
+                        value='',
+                        className="dropdown"
+                    ),
+                ], className='dropdown-item'),
+
+                html.Div([
+                    html.Label("Choose your variable:", className="dropdown-label"),
+                    dcc.Dropdown(
+                        id='x-axis-dropdown-graficosvarios',
+                        value='',
+                        className="dropdown"
+                    ),
+                ], className='dropdown-item'),
+
+                html.Div([
+                    html.Label("Choose your filter:", className="dropdown-label"),
+                    dcc.Dropdown(
+                        id='filter-dropdown-graficosvarios',
+                        value='',
+                        className="dropdown"
+                    ),
+                ], className='dropdown-item'),
+
+            ], className='dropdown-container', style={'marginBottom': '50px'}),
+
+            dcc.Graph(id='univariado-plot'),
+            html.Button('Add graph to report', id='guardar1', n_clicks=0, className='confirm-button'),
+                html.H3("Matrix Charts", className="subtitle"),
     # Dropdowns para la selección de atributos y tipos de gráfico
     html.Div([
         html.Div([
-            html.Label("Seleccionar tipo de gráfico:", className="dropdown-label"),
-            dcc.Dropdown(
-                id='tipo-grafico-dropdown',
-                options=[
-                    
-                    {'label': 'Diagrama de barra', 'value': 'histogram'},
-                    
-                    {'label': 'Gráfico de Torta', 'value': 'pie'},
-                ],
-                value='',
-                className="dropdown"
-            ),
-        ], className='dropdown-item'),
-        html.Div([
-            html.Label("Seleccionar atributo del eje X:", className="dropdown-label"),
-            dcc.Dropdown(
-                id='x-axis-dropdown',
-                value='',
-                className="dropdown"
-            ),
-        ], className='dropdown-item'),
-    ], className='dropdown-container', style={'marginBottom': '50px'}),
-    # Gráfico dinámico
-    dcc.Graph(id='univariado-plot'),
-    html.H3("Gráficos Bivariados", className="subtitle"),
-    # Dropdowns para la selección de atributos y tipos de gráfico
-    html.Div([
-        html.Div([
-            html.Label("Seleccionar tipo de gráfico:", className="dropdown-label"),
-            dcc.Dropdown(
-                id='tipo-grafico2-dropdown',
-                options=[
-                    
-                    {'label': 'Diagrama de Polígono (Promedio)', 'value': 'polig'},
-                    
-                    {'label': 'Gráfico de barra bivariado', 'value': 'bibar'},
-                ],
-                value='',
-                className="dropdown"
-            ),
-        ], className='dropdown-item'),
-        html.Div([
-            html.Label("Seleccionar atributo del eje X:", className="dropdown-label"),
-            dcc.Dropdown(
-                id='x-axis-dropdown2',
-                value='',
-                className="dropdown"
-            ),
-        ], className='dropdown-item'),
-        html.Div([
-            html.Label("Seleccionar Subrupo del eje X:", className="dropdown-label"),
-            dcc.Dropdown(
-                id='x-axis-dropdown3',
-                value='',
-                className="dropdown"
-            ),
-        ], className='dropdown-item'),
-    ], className='dropdown-container', style={'marginBottom': '50px'}),
-    # Gráfico de Barras Agrupadas (Bivariado)
-    dcc.Graph(id='bi-plot'),
-    html.H3("Otros Gráficos", className="subtitle"),
-    # Dropdowns para la selección de atributos y tipos de gráfico
-    html.Div([
-        html.Div([
-            html.Label("Seleccionar tipo de gráfico:", className="dropdown-label"),
+            html.Label("Choose your chart:", className="dropdown-label"),
             dcc.Dropdown(
                 id='tipo-grafico3-dropdown',
                 options=[
                     
-                    {'label': 'Gráfico de radios o araña', 'value': 'araña'},
+                    {'label': 'Radar Chart', 'value': 'araña'},
                     
-                    {'label': 'Gráfico de multi barras', 'value': 'multibar'},
+                    {'label': 'Multi bar Chart', 'value': 'multibar'},
 
-                    {'label': 'Gráfico de cajas', 'value': 'cajas'},
                 ],
                 value='',
                 className="dropdown"
             ),
         ], className='dropdown-item'),
         html.Div([
-            html.Label("Seleccionar el conjunto de atributos:", className="dropdown-label"),
+            html.Label("Choose your group of variables (Matrix):", className="dropdown-label"),
             dcc.Dropdown(
-                id='x-axis-dropdown4',
+                id='x-axis-dropdown-graficomult',
                 value='',
                 className="dropdown"
             ),
         ], className='dropdown-item'),
+        html.Div([
+                    html.Label("Choose your filter:", className="dropdown-label"),
+                    dcc.Dropdown(
+                        id='filtro-dropdown-matrix',
+                        value='',
+                        className="dropdown"
+                    ),
+                ], className='dropdown-item'),
+        
     ], className='dropdown-container', style={'marginBottom': '50px'}),
     # Gráfico de Barras Agrupadas (Bivariado)
     dcc.Graph(id='multi-plot'),
-    # Sección para Bubble Chart
-    html.Hr(),  # Línea horizontal para separar las secciones
+    html.Button('Add graph to report', id='guardar2', n_clicks=0, className='confirm-button'),
+    html.H3("Custom Heatmap", className="subtitle"),
+    html.Div([
+            html.Label("Choose your first variable:", className="dropdown-label"),
+            dcc.Dropdown(
+                id='heat-dropdown1',
+                placeholder="Select a variable",
+                className="dropdown"
+            ),
+    ], className='dropdown-item'),
+    html.Div([
+            html.Label("Choose your aditional variable: ", className="dropdown-label"),
+            dcc.Dropdown(
+                id='heat-dropdown2',
+                className="dropdown",
+                disabled=True
+            ),
+            html.Button('Add', id='add-button', n_clicks=0, disabled=True),
+    ], className='dropdown-item'),
     
-    html.H3("Bubble Chart Configurable", className="subtitle"),
-    
-    # Dropdown para seleccionar la dimensión X del Bubble Chart
-    html.Label("Seleccionar dimensión X:"),
-    dcc.Dropdown(
-        id='bubble-x-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Dropdown para seleccionar la dimensión Y del Bubble Chart
-    html.Label("Seleccionar dimensión Y:"),
-    dcc.Dropdown(
-        id='bubble-y-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Dropdown para seleccionar la dimensión del tamaño de las burbujas
-    html.Label("Seleccionar dimensión del tamaño de las burbujas:"),
-    dcc.Dropdown(
-        id='bubble-size-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Dropdown para seleccionar la dimensión del color de las burbujas
-    html.Label("Seleccionar dimensión del color de las burbujas:"),
-    dcc.Dropdown(
-        id='bubble-color-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Dropdown para seleccionar la dimensión de la etiqueta de las burbujas
-    html.Label("Seleccionar dimensión de la etiqueta de las burbujas:"),
-    dcc.Dropdown(
-        id='bubble-label-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Gráfico de Burbujas
-    dcc.Graph(id='bubble-plot'),
-    
-    # Sección para el gráfico en 3D
-    html.Hr(),  # Línea horizontal para separar las secciones
-    
-    html.H3("Gráfico en 3D Configurable", className="subtitle"),
-    
-    # Dropdown para seleccionar la dimensión X del gráfico 3D
-    html.Label("Seleccionar dimensión X (3D):"),
-    dcc.Dropdown(
-        id='3d-x-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Dropdown para seleccionar la dimensión Y del gráfico 3D
-    html.Label("Seleccionar dimensión Y (3D):"),
-    dcc.Dropdown(
-        id='3d-y-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Dropdown para seleccionar la dimensión Z del gráfico 3D
-    html.Label("Seleccionar dimensión Z (3D):"),
-    dcc.Dropdown(
-        id='3d-z-dropdown',
-        value='',
-        className="dropdown"
-    ),
-    
-    # Gráfico en 3D
-    dcc.Graph(id='3d-plot'),
-    
-    # Sección para el gráfico de barras agrupadas (bivariado)
-    html.Hr(),  # Línea horizontal para separar las secciones
-    
-
-    html.H2("Análisis Exploratorio", className="title"),
-    html.H3("Codificación de datos manual (Solo cadena a numérica)", className="subtitle"),
-    dcc.Dropdown(
-        id='dropdown-column',
-        options=[{'label': col, 'value': col} for col in df.columns],
-        value="",  # Columna predeterminada
-        className="dropdown"
-    ),
-    html.Div(id='output-container'),
-    html.Button('Confirmar cambios', id='confirm-button', n_clicks=0, className='confirm-button'),
-    html.Div(id='output-container2'),
-
-    html.H3("Visualizar y seleccionar columnas", className="subtitle"),
+    dcc.Graph(id='heatmap', style={'display': 'none'}),  # Ocultar el gráfico inicialmente
+    html.Button('Add graph to report', id='guardar3', n_clicks=0, className='confirm-button'),
+    dcc.Store(id='selected-columns', data=[]),  # Componente oculto para almacenar las columnas seleccionadas
+    html.H3("Generate Report", className="subtitle"),
+    html.Button('Generar HTML', id='generate-html', n_clicks=0, className='confirm-button'),
+    dcc.Download(id='download-html'),
+    dcc.Store(id='selected-figures', data=[])
+        ]),
+        dcc.Tab(label='Exploratory Analysis', children=[
+               html.H3("Select variables", className="subtitle"),
     # Checklist para seleccionar columnas
     html.Div([
         dcc.Checklist(
@@ -256,40 +157,34 @@ app.layout = html.Div([
         ),
     ]),
     html.Div(id='nada'),
-    html.Button('Seleccionar todas', id='select-all-button', n_clicks=0),
-    html.Button('Deseleccionar todas', id='deselect-all-button', n_clicks=0),
-    html.H3("Generar informe de análisis exploratorio para variables seleccionadas", className="subtitle"),
+    html.Button('Select all', id='select-all-button', n_clicks=0),
+    html.Button('Deselect all', id='deselect-all-button', n_clicks=0),
+    html.H3("Generate automatic report", className="subtitle"),
 
 
     html.Button("Abrir Informe", id="abrir-informe-button"),
     
-    
-    html.H3('Visualización de Análisis Factorial Exploratorio', className="subtitle"),
-    html.Div([
-        html.H3('Elija el número de factores que desea: ', style={'display': 'inline-block', 'margin-right': '10px'}),
-        dcc.Input(id='input-number', type='number', value=3, min=1, max=10, step=1, style={'display': 'inline-block'}),
-    ]),
-    html.Button("Realizar análisis factorial", id="analisisfactorial", className='confirm-button'),
-    html.Div([
-        dcc.Graph(id='factor_loading_plot'),
-        dcc.Graph(id='eigenvalue_plot'),
-        dcc.Graph(id='explained_variance_plot')
+            # Aquí puedes agregar el contenido para la codificación manual de datos
+        ]),
+        dcc.Tab(label='Data codification', children=[
+                html.H3("Manual data codification", className="subtitle"),
+                dcc.Dropdown(
+                    id='dropdown-column',
+                    options=[{'label': col, 'value': col} for col in df.columns],
+                    value="",  # Columna predeterminada
+                    className="dropdown"
+                ),
+                html.Div(id='output-container'),
+                html.Button('Confirm', id='confirm-button', n_clicks=0, className='confirm-button'),
+                html.Div(id='output-container2'),
+                html.Button('Save updated DF', id='save-button', n_clicks=0),
+                html.Div(id='output-container-button')
+            # Aquí puedes agregar el contenido para la codificación manual de datos
+        ]),
     ])
-
-
 ])
 
-# Función para cargar los datos desde un archivo CSV
-def parse_contents(contents):
-    global checkboxes
-    content_type, content_string = contents.split(',')
-    #global checkboxes
-    decoded = base64.b64decode(content_string)
-    global df  # Hacer referencia a la variable global df
-    df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-    options = [{'label': col, 'value': col} for col in df.columns]
 
-    return options
 def agrupar_codigos(codigos):
     grupos = defaultdict(list)
 
@@ -306,141 +201,174 @@ def agrupar_codigos(codigos):
                      for clave,codigos in grupos.items() if len(codigos) > 1]
 
     return arreglo_final
-# Callback para cargar datos cuando se carga un archivo CSV y actualizar los dropdowns
-@app.callback([Output('output-data-upload', 'children'),
-               Output('x-axis-dropdown4', 'options'),
-               Output('x-axis-dropdown', 'options'),
-               Output('bubble-x-dropdown', 'options'),
-               Output('bubble-y-dropdown', 'options'),
-               Output('bubble-size-dropdown', 'options'),
-               Output('bubble-color-dropdown', 'options'),
-               Output('bubble-label-dropdown', 'options'),
-               Output('3d-x-dropdown', 'options'),
-               Output('3d-y-dropdown', 'options'),
-               Output('3d-z-dropdown', 'options'),
-               Output('column-selector', 'options'),
-               Output('x-axis-dropdown2', 'options'),
-               Output('dropdown-column', 'options'),
-               Output('x-axis-dropdown3', 'options')],
-              [Input('upload-data', 'contents')])
-def update_output(contents):
-    if contents is None:
-        raise PreventUpdate
-    else:
-        options = parse_contents(contents)
-        #selected_values = [option['value'] for option in options]
+@app.callback(
+        
+    [Output('x-axis-dropdown-graficosvarios', 'options'),
+     Output('filter-dropdown-graficosvarios', 'options'),
+     Output('filtro-dropdown-matrix', 'options'),
+     Output('heat-dropdown1', 'options'),
+     Output('dropdown-column', 'options'),
+     Output('column-selector', 'options'),
+     Output('x-axis-dropdown-graficomult', 'options')],
+    Input('upload-data', 'contents'),
+    Input('upload-data', 'filename')
+)
+def update_dropdowns(contents, filename):
+    if contents is not None:
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        global df
+        df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+        options = [{'label': col, 'value': col} for col in df.columns]
         opcionesespeciales = agrupar_codigos(options)
-        return [html.P(f'Se ha cargado un archivo con {len(df)} filas y {len(df.columns)} columnas.')],opcionesespeciales,  options, options, options, options, options, options, options, options,options, options, options, options, options
+        return options, options, options,options,options, options, opcionesespeciales
+    raise PreventUpdate
 
-# Callback para actualizar el gráfico dinámico
+@app.callback(
+    Output('output-data-upload', 'children'),
+    Input('upload-data', 'contents'),
+    Input('upload-data', 'filename')
+)
+def update_output(contents, filename):
+    if contents is not None:
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+        return html.Div([
+            html.H5(filename),
+            html.H6("First 5 rows of the CSV Uploaded:"),
+            dash.dash_table.DataTable(
+                data=df.head().to_dict('records'),
+                columns=[{'name': i, 'id': i} for i in df.columns],
+                style_table={'overflowX': 'auto'}
+            )
+        ])
+    raise PreventUpdate
+
 @app.callback(
     Output('univariado-plot', 'figure'),
-    [Input('tipo-grafico-dropdown', 'value'),
-     Input('x-axis-dropdown', 'value')],
+    Input('tipo-grafico-dropdown', 'value'),
+    Input('x-axis-dropdown-graficosvarios', 'value'),
+    Input('filter-dropdown-graficosvarios', 'value')
 )
-def update_univariado(selected_grafico, selected_x):
-    if selected_grafico == '' or selected_x=="":
-        raise PreventUpdate
-    counts = df[selected_x].value_counts().reset_index()
-    counts.columns = ['x', 'count']
-    if selected_grafico == 'histogram':
-        fig = px.bar(counts, x='x', y='count', labels={'x': selected_x, 'count': 'Cantidad'})
-    elif selected_grafico == 'pie':
-        fig = px.pie(counts, names='x', values='count', title="Diagrama de Pie", labels={'x': selected_x, 'count': 'Cantidad'})
-    else:
-        raise PreventUpdate
+def update_varios_plot(tipo_grafico, x_axis, filtro):
+    if tipo_grafico and x_axis and filtro:
+        filtered_dfs = df.groupby(filtro)
+        if tipo_grafico == 'histogram':
+            fig = go.Figure()
+            for filter_value, filtered_df in filtered_dfs:
+                counts = filtered_df[x_axis].value_counts()
+                total_counts = counts.sum()
+                percentages = (counts / total_counts) * 100
+                
+                fig.add_trace(go.Bar(
+                    x=counts.index,
+                    y=counts,
+                    name=str(filter_value),
+                    text=[f'{p:.1f}%' for p in percentages],
+                    textposition='auto'
+                ))
 
-    fig.update_layout(
-        xaxis_title=f'{selected_x}',
-
-        title=f'{selected_grafico.capitalize()}: {selected_x}'
-    )
-    return fig
-
-# Callback para actualizar el gráfico de Burbujas
-@app.callback(
-    Output('bubble-plot', 'figure'),
-    [Input('bubble-x-dropdown', 'value'),
-     Input('bubble-y-dropdown', 'value'),
-     Input('bubble-size-dropdown', 'value'),
-     Input('bubble-color-dropdown', 'value'),
-     Input('bubble-label-dropdown', 'value')],
-)
-def update_bubble_plot(selected_x, selected_y, selected_size, selected_color, selected_label):
-    if not all([selected_x, selected_y, selected_size, selected_color, selected_label]):
-        raise PreventUpdate
-
-    fig = px.scatter(df, x=selected_x, y=selected_y, size=selected_size, color=selected_color, labels={selected_x: selected_x, selected_y: selected_y},
-                     hover_name=selected_label, title=f'Bubble Chart: {selected_size} vs. {selected_color} vs. {selected_x} vs. {selected_y}')
-    return fig
-
-# Callback para actualizar el gráfico en 3D
-@app.callback(
-    Output('3d-plot', 'figure'),
-    [Input('3d-x-dropdown', 'value'),
-     Input('3d-y-dropdown', 'value'),
-     Input('3d-z-dropdown', 'value')],
-)
-def update_3d_plot(selected_x, selected_y, selected_z):
-    if not all([selected_x, selected_y, selected_z]):
-        raise PreventUpdate
-    else:
-        counts = df.groupby([selected_x, selected_y, selected_z]).size().reset_index(name='count')
-
-        # Crea una nueva columna 'size' que represente el tamaño de cada punto basado en el recuento
-        counts['size'] = counts['count'] * 10  # Ajusta el multiplicador según tus necesidades
-        
-        # Crea el gráfico 3D con Plotly Express
-        fig = px.scatter_3d(counts, x=selected_x, y=selected_y, z=selected_z, size='size',
-                    title=f'Gráfico en 3D: {selected_x} vs. {selected_y} vs. {selected_z}')
-    return fig
-# Callback para actualizar el gráfico de Barras Agrupadas (Bivariado)
-@app.callback(
-    Output('bi-plot', 'figure'),
-    [Input('tipo-grafico2-dropdown', 'value'),
-     Input('x-axis-dropdown2', 'value'),
-     Input('x-axis-dropdown3', 'value')],
-)
-def update_bivariado(selected_grafico, selected_x, subgroup):
-    if selected_grafico == '' or selected_x=="" or subgroup=="":
-        raise PreventUpdate
-    
-    
-    if selected_grafico == 'bibar':
-        df_sorted = df.sort_values(by=subgroup)
-        fig = px.bar(df_sorted, x=selected_x, color=subgroup, barmode='group',
-                 labels={selected_x: selected_x, 'count': 'Frecuencia'},
-                 title=f'Gráfico de Barras Agrupadas (Bivariado): {selected_x} vs. {subgroup}')
-    elif selected_grafico == 'polig':
-        df_grouped = df.groupby(selected_x).agg({subgroup: 'mean'}).reset_index()
-        fig = px.line(df_grouped, x=selected_x, y=subgroup, markers=True)
-    else:
-        raise PreventUpdate
-
-    fig.update_layout(
-        xaxis_title=f'{selected_x}',
-
-        title=f'{selected_grafico.capitalize()}: {selected_x}'
-    )
-    return fig
+            # Opcional: Actualizar el diseño del gráfico
+            fig.update_layout(
+                barmode='group',
+                title=f"{x_axis} Filtered by {filtro}",
+                xaxis_title=x_axis,
+                yaxis_title='Frecuencia'
+            )
+        elif tipo_grafico == 'pie':
+            unique_values = df[filtro].unique()
+            fig = make_subplots(rows=1, cols=len(unique_values), specs=[[{'type': 'domain'}]*len(unique_values)])
+            annotations = []
+            for i, value in enumerate(unique_values):
+                filtered_df = df[df[filtro] == value]
+                fig.add_trace(
+                    go.Pie(labels=filtered_df[x_axis].value_counts().index, values=filtered_df[x_axis].value_counts().values, name=str(value)),
+                    row=1, col=i+1
+                )
+                annotations.append(dict(
+                    x=0.5/len(unique_values) + i*(1.0/len(unique_values)),
+                    y=-0.1,  # Ajusta esta posición según sea necesario
+                    text=str(value),
+                    showarrow=False,
+                    xanchor='center',
+                    yanchor='top'
+                ))
+            fig.update_layout(
+                title=f"{x_axis} Filtered by {filtro}",
+                annotations=annotations
+            )
+        return fig
+    elif tipo_grafico and x_axis:
+        if tipo_grafico == 'histogram':
+            
+            fig = go.Figure()
+            counts = df[x_axis].value_counts()
+            total_counts = counts.sum()
+            percentages = (counts / total_counts) * 100
+            fig.add_trace(go.Bar(
+                x=counts.index,
+                y=counts,
+                text=[f'{p:.1f}%' for p in percentages],
+                textposition='auto'
+            ))
+        elif tipo_grafico == 'pie':
+            fig = px.pie(df, names=x_axis)
+        return fig
+    raise PreventUpdate
 # Función para calcular las medias de las columnas
 def calcular_medias(df, nombres_columnas):
     medias = []
+    
     for columna in nombres_columnas:
+        mapeo = {
+            'Totalmente en desacuerdo': 1,
+            'Mucho peor': 1,
+            'Muy negativo':1,
+            'En desacuerdo': 2,
+            'Peor':2,
+            'Negativo':2,
+            'Neutral': 3,
+            'Sin cambios': 3,
+            'De acuerdo': 4,
+            'Mejor':4,
+            'Positivo':4,
+            'Totalmente de acuerdo': 5,
+            'Mucho mejor':5,
+            'Muy positivo':5
+        }
+
+        # Aplicar el mapeo a la columna
+        df[columna] = df[columna].map(mapeo).fillna(df[columna])
         media_columna = df[columna].mean()
+        media_columna = 100*(media_columna-1)/(df[columna].max()-1)
         medias.append(media_columna)
     return medias
+def generate_color_palette(n):
+    # Definir los colores iniciales y finales en formato RGBA
+    start_color = np.array([255, 51, 51, 0.8])  # Rojo
+    end_color = np.array([119, 255, 51, 1])    # Verde
 
-def calcular_porcentajes_ocurrencias(df, nombres_columnas):
+    # Crear un array de interpolación
+    colors = np.linspace(start_color, end_color, n)
+
+    # Convertir los colores a formato 'rgba(r, g, b, a)'
+    rgba_colors = [f'rgba({int(r)}, {int(g)}, {int(b)}, {a:.2f})' for r, g, b, a in colors]
+
+    return rgba_colors
+def calcular_porcentajes_ocurrencias(df, nombres_columnas, toplabels):
     porcentajes = []
     for columna in nombres_columnas:
         porcentajes_columna = []
         # Calcular la cantidad total de valores en la columna
         total_valores = df[columna].count()
         # Calcular el porcentaje de ocurrencia de cada valor (1, 2, 3, 4, 5)
-        for valor in range(1, 6):
+
+
+        for valor in toplabels:
             porcentaje = round(df[columna].value_counts(normalize=True).get(valor, 0) * 100, 2)
             porcentajes_columna.append(porcentaje)
+
         porcentajes.append(porcentajes_columna)
     # Calcular el promedio de los porcentajes en cada arreglo de porcentajes
     promedios_porcentajes = [round(sum(columna) / len(columna), 2) for columna in zip(*porcentajes)]
@@ -450,161 +378,347 @@ def calcular_porcentajes_ocurrencias(df, nombres_columnas):
 @app.callback(
     Output('multi-plot', 'figure'),
     [Input('tipo-grafico3-dropdown', 'value'),
-     Input('x-axis-dropdown4', 'value')],
+     Input('x-axis-dropdown-graficomult', 'value'),
+     Input('filtro-dropdown-matrix', 'value')]
 )
-def update_multivariado(selected_grafico, selected_x):
-    if selected_grafico == '' or selected_x=="" :
+def update_multivariado(selected_grafico, selected_x, filtro):
+    if selected_grafico == '' or selected_x == '':
         raise PreventUpdate
-    
+
     columnas = selected_x.split("/")
+    titulo = columnas[0].split("-")[0]
+    if (filtro == ''):
+        unique_filter_values = ["nada"]
+    else:
+        unique_filter_values = df[filtro].unique()
+    num_subplots = len(unique_filter_values)
 
-    medias_columnas = calcular_medias(df, columnas)
-    print(medias_columnas)
-
-# Crear DataFrame auxiliar con nombres de columnas y medias
     if selected_grafico == 'araña':
-        fig = go.Figure(data=go.Scatterpolar(
-        r=medias_columnas,
-        theta=columnas,
-        fill='toself'
-        ))
+        
+        fig = make_subplots(rows=(num_subplots+1)//2, cols=2, specs=[[{'type': 'polar'}, {'type': 'polar'}] for _ in range((num_subplots+1)//2)])        
+        for i, valor in enumerate(unique_filter_values):
+            if (valor=='nada'):
+                filtered_df=df
+            else:
+                filtered_df = df[df[filtro] == valor]
+            medias_columnas = calcular_medias(filtered_df, columnas)
+            y_data = [elemento.split("-")[-1] for elemento in columnas]
+            if (valor=='nada'):
+                fig.add_trace(go.Scatterpolar(
+                r=medias_columnas,
+                theta=y_data,
+                fill='toself',
+                name=f'Radar chart'
+               
+                ), row=(i+2)//2, col=i%2+1)
+            else:
+                fig.add_trace(go.Scatterpolar(
+                    r=medias_columnas,
+                    theta=y_data,
+                    fill='toself',
+                    name=f'Filtro: {valor}'
+                ), row=(i+2)//2, col=i%2+1)
 
-        fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-            visible=True,
-            tickvals=[1,2,3,4,5],
-            range=[1,5]
+            # Añadir anotación debajo de cada gráfica
+      
+                fig.add_annotation(
+                    x=i / num_subplots + 1 / (2 * num_subplots),
+                    y=-0.15,  # Posición y debajo de la gráfica
+                    text=f'Filtro: {valor}',
+                    showarrow=False,
+                    xref='paper',
+                    yref='paper',
+                    xanchor='center',
+                    yanchor='top'
+                )
+            fig.update_polars(
+            dict(
+                radialaxis=dict(
+                    visible=True,
+                    tickvals=[25, 50, 75, 100],
+                    range=[0, 100]
+                ),
             ),
-        ),
-        showlegend=False
+            row=(i+2)//2, col=i%2+1
+            )
+        fig.update_layout(
+        height=(num_subplots+1)//2*500,  # Ajusta la altura total del gráfico
+        width=1400,  # Ajusta el ancho total del gráfico
+        showlegend=True,
+        title_text="Gráficos Radar",
         )
-    elif selected_grafico == 'cajas':
-        fig = go.Figure()
-        for media in columnas:
-            # Use x instead of y argument for horizontal plot
-            fig.add_trace(go.Box(x=df[media], name=media))
-        for media in columnas:
-            fig.add_trace(go.Scatter(x=[np.mean(df[media])], y=[media], mode='markers', marker=dict(color='red'), name='Media'))
-
-
+        
 
 
     elif selected_grafico == 'multibar':
-        top_labels = ['Mucho peor', 'Peor', 'Neutral', 'Mejor',
-              'Mucho mejor']
-
-        colors = ['rgba(255, 51, 51, 0.8)', 'rgba(255, 153, 51, 0.8)',
-                'rgba(255, 230, 51, 0.8)', 'rgba(218, 255, 51, 0.85)',
-                'rgba(119, 255, 51, 1)']
-
-        x_data = calcular_porcentajes_ocurrencias(df, columnas)
-        columnas.append("Promedio: ")
-        y_data = columnas
-
-        fig = go.Figure()
-
-        for i in range(0, len(x_data[0])):
-            for xd, yd in zip(x_data, y_data):
-                fig.add_trace(go.Bar(
-                    x=[xd[i]], y=[yd],
-                    orientation='h',
-                    marker=dict(
-                        color=colors[i],
-                        line=dict(color='rgb(248, 248, 249)', width=1)
-                    )
-                ))
-
-        fig.update_layout(
-            xaxis=dict(
-                showgrid=False,
-                showline=False,
-                showticklabels=False,
-                zeroline=False,
-                domain=[0.15, 1]
-                
-            ),
-            yaxis=dict(
-                showgrid=False,
-                showline=False,
-                showticklabels=False,
-                zeroline=False,
-            ),
-            barmode='stack',
-            paper_bgcolor='rgb(248, 248, 255)',
-            plot_bgcolor='rgb(248, 248, 255)',
-            margin=dict(l=120, r=10, t=140, b=80),
-            showlegend=False,
-            
-        )
-
+        fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True)
         annotations = []
+        valores_unicos = df[columnas[0]].unique()
+        if valores_unicos.dtype == np.int64 or np.array_equal(np.sort(valores_unicos), np.sort(np.array(["Muy negativo", "Negativo", "Neutral", "Positivo", "Muy positivo"]))):
+            top_labels = ["Muy negativo", "Negativo", "Neutral", "Positivo", "Muy positivo"]
+            if valores_unicos.dtype == np.int64:
+                valoresdecolumna = [1, 2, 3, 4, 5]
+            else:
+                valoresdecolumna = top_labels
+        elif np.array_equal(np.sort(valores_unicos), np.sort(np.array(["Totalmente en desacuerdo", "En desacuerdo", "Neutral", "De acuerdo", "Totalmente de acuerdo"]))):
+            top_labels = ["Totalmente en desacuerdo", "En desacuerdo", "Neutral", "De acuerdo", "Totalmente de acuerdo"]
+            valoresdecolumna = top_labels
+        elif np.array_equal(np.sort(valores_unicos), np.sort(np.array(['Mucho peor', 'Peor', 'Sin cambios', 'Mejor', 'Mucho mejor']))):
+            top_labels = ['Mucho peor', 'Peor', 'Sin cambios', 'Mejor', 'Mucho mejor']
+            valoresdecolumna = top_labels
+        else:
+            top_labels = valores_unicos
+            valoresdecolumna = top_labels
+        #Por filtro
+        colors = generate_color_palette(len(top_labels))
+        for i, valor in enumerate(unique_filter_values):
+            if (valor=='nada'):
+                filtered_df=df
+            else:
+                filtered_df = df[df[filtro] == valor]
 
-        for yd, xd in zip(y_data, x_data):
-            # labeling the y-axis
-            annotations.append(dict(xref='paper', yref='y',
-                                    x=0.14, y=yd,
-                                    xanchor='right',
-                                    text=str(yd),
-                                    font=dict(family='Arial', size=14,
-                                            color='rgb(67, 67, 67)'),
-                                    showarrow=False, align='right'))
-            # labeling the first percentage of each bar (x_axis)
-            annotations.append(dict(xref='x', yref='y',
-                                    x=xd[0] / 2, y=yd,
-                                    text=str(xd[0]) + '%',
-                                    font=dict(family='Arial', size=14,
-                                            color='rgb(0, 0, 0)'),
-                                    showarrow=False))
-            # labeling the first Likert scale (on the top)
-            if yd == y_data[-1]:
-                annotations.append(dict(xref='x', yref='paper',
-                                        x=xd[0] / 2, y=1.1,
-                                        text=top_labels[0],
-                                        font=dict(family='Arial', size=14,
-                                                color='rgb(67, 67, 67)'),
-                                        showarrow=False))
-            space = xd[0]
-            for i in range(1, len(xd)):
-                    # labeling the rest of percentages for each bar (x_axis)
-                    annotations.append(dict(xref='x', yref='y',
-                                            x=space + (xd[i]/2), y=yd,
-                                            text=str(xd[i]) + '%',
-                                            font=dict(family='Arial', size=14,
-                                                    color='rgb(0, 0, 0)'),
-                                            showarrow=False))
-                    # labeling the Likert scale
-                    if yd == y_data[-1]:
-                        annotations.append(dict(xref='x', yref='paper',
-                                                x=space + (xd[i]/2), y=1.1,
-                                                text=top_labels[i],
+            x_data = calcular_porcentajes_ocurrencias(filtered_df, columnas, valoresdecolumna)
+            y_data = [elemento.split("-")[-1] for elemento in columnas]
+            y_data.append("Mean")
+            #Para cada porcentaje de una sola barra, normalmente serian 5 porcentajes
+            for j in range(len(x_data[0])):
+                #Ya depende del tamaño de la matrix incluyendo la media
+                for xd, yd in zip(x_data, y_data):
+                    fig.add_trace(go.Bar(
+                        x=[xd[j]], y=["~"+str(yd)],
+                        orientation='h',
+                        marker=dict(
+                            color=colors[j],
+                            line=dict(color='rgb(248, 248, 249)', width=1)
+                        ),
+                       
+                    ), row=i+1, col=1)
+
+       
+                    # Anotaciones de porcentajes en el eje x
+                    annotations.append(dict(
+                        xref=f'x{i+1}', yref=f'y{i+1}',
+                        x=xd[0] / 2, y="~"+str(yd),
+                        text=f'{xd[0]}%',
+                        font=dict(family='Arial', size=14, color='rgb(0, 0, 0)'),
+                        showarrow=False
+                    ))
+                    if yd == y_data[-1] and i==0:
+                        annotations.append(dict(xref='paper', yref='y1',
+                                                x=0 , y=len(y_data)+1,
+                                                text=top_labels[0],
                                                 font=dict(family='Arial', size=14,
                                                         color='rgb(67, 67, 67)'),
                                                 showarrow=False))
-                    space += xd[i]
-        fig.update_layout(annotations=annotations)
+                    space = xd[0]
+                    for k in range(1, len(xd)):
+                        annotations.append(dict(
+                            xref=f'x{i+1}', yref=f'y{i+1}',
+                            x=space + (xd[k] / 2), y="~"+str(yd),
+                            text=f'{xd[k]}%',
+                            font=dict(family='Arial', size=14, color='rgb(0, 0, 0)'),
+                            showarrow=False
+                        ))
+                        if yd == y_data[-1] and i==0:
+                            annotations.append(dict(xref='paper', yref='y1',
+                                                    x=k/len(xd) , y=len(y_data)+1,
+                                                    text=top_labels[k],
+                                                    font=dict(family='Arial', size=14,
+                                                            color='rgb(67, 67, 67)'),
+                                                    showarrow=False))
+                        space += xd[k]
+
+            # Añadir anotación para el valor del filtro encima de cada subplot
+            if (valor!= 'nada'):
+                annotations.append(dict(
+                    xref= "paper",yref=f'y{i+1}',
+                    x=0.5, y=len(y_data),  # Ajustado para posicionar fuera del área de trazado
+                    text=f'Filtro: {valor}',
+                    font=dict(family='Arial', size=16, color='rgb(67, 67, 67)'),
+                    showarrow=False, align='center'
+                ))
+
+
+        base_height = 400  # Altura base para una sola subtrama
+        subplot_height = 250  # Altura adicional por cada subtrama adicional
+        total_height = base_height + subplot_height * (num_subplots - 1)
+        fig.update_layout(
+            barmode='stack',
+            paper_bgcolor='rgb(248, 248, 255)',
+            plot_bgcolor='rgb(248, 248, 255)',
+            height=total_height,  
+            annotations=annotations, 
+            showlegend=False,
+            margin=dict(l=120, r=10, t=140, b=80), 
+        )
+    if (unique_filter_values[0] == "nada"):
+        fig.update_layout(
+        title=f'{titulo}',
+        )
     else:
-        raise PreventUpdate
-
-    fig.update_layout(
-        title=f'{selected_grafico.capitalize()}: {selected_x}'
-    )
+        fig.update_layout(
+            title=f'{titulo} con Filtro: {filtro}',
+        )
     return fig
-
 @app.callback(
-    Output("abrir-informe-button", "n_clicks"),
-    Input("abrir-informe-button", "n_clicks")
+    Output('selected-figures', 'data'),
+    [
+        Input('guardar1', 'n_clicks'),
+        Input('guardar2', 'n_clicks'),
+        Input('guardar3', 'n_clicks')
+    ],
+    [
+        State('selected-figures', 'data'),
+        State('univariado-plot', 'figure'),
+        State('multi-plot', 'figure'),
+        State('heatmap', 'figure')
+    ]
 )
-def abrir_informe(n_clicks):
-    if n_clicks:
-        profile = ProfileReport(filtered_df, title="Pandas Profiling Report")
-        profile.to_file("tu_informe.html")
-        # Abre el informe en una nueva ventana o pestaña
-        webbrowser.open_new_tab("tu_informe.html")
+def add_figure_to_selection(n_clicks_1, n_clicks_2,n_clicks_3, selected_figures, figure_1, figure_2, figure_3):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return selected_figures
+    else:
+        triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        if triggered_id == 'guardar1' and n_clicks_1:
+            graph_figure = figure_1
+        elif triggered_id == 'guardar2' and n_clicks_2:
+            graph_figure = figure_2
+        elif triggered_id == 'guardar3' and n_clicks_3:
+            graph_figure = figure_3
+        else:
+            return selected_figures
+        selected_figures.append(graph_figure)
+        return selected_figures
 
-    # Si no se ha hecho clic en el botón, no hace nada
-    return None
-# Función para generar el contenido dinámico basado en el DataFrame
+
+
+
+
+
+
+# Callback para actualizar las opciones del segundo dropdown
+@app.callback(
+    Output('heat-dropdown2', 'options'),
+    Output('heat-dropdown2', 'disabled'),
+    Output('add-button', 'disabled'),
+    Input('heat-dropdown1', 'value')
+)
+def set_second_dropdown_options(selected_column):
+    if selected_column is None:
+        return [], True, True
+    
+    unique_values = set(df[selected_column].unique())
+    matching_columns = [
+        col for col in df.columns
+        if set(df[col].unique()) == unique_values and col != selected_column
+    ]
+    return [{'label': col, 'value': col} for col in matching_columns], False, False
+
+# Callback para actualizar la lista de columnas seleccionadas
+@app.callback(
+    Output('selected-columns', 'data'),
+    Input('add-button', 'n_clicks'),
+    Input('heat-dropdown1', 'value'),  # Agregar input para el primer dropdown
+    State('heat-dropdown2', 'value'),
+    State('selected-columns', 'data')
+)
+def update_selected_columns(n_clicks, first_col, second_col, selected_columns):
+    if n_clicks == 0:
+        return [first_col] if first_col else []
+    
+    if second_col and second_col not in selected_columns:
+        selected_columns.append(second_col)
+    
+    if first_col and first_col not in selected_columns:
+        selected_columns.insert(0, first_col)
+    
+    return selected_columns
+
+# Callback para actualizar el heatmap
+@app.callback(
+    Output('heatmap', 'figure'),
+    Output('heatmap', 'style'),  # Agregar output para el estilo del gráfico
+    Input('selected-columns', 'data'),
+    State('heat-dropdown1', 'value')
+)
+def update_heatmap(selected_columns, first_col):
+    if not selected_columns or first_col not in selected_columns:
+        return go.Figure(), {'display': 'none'}  # Si no se ha seleccionado ninguna columna o si la primera columna no está seleccionada
+    
+    unique_values = sorted(set(df[first_col].unique()))
+    heatmap_data = pd.DataFrame(columns=unique_values)
+    heatmap_text = pd.DataFrame(columns=unique_values)
+    
+    for col in selected_columns:
+        heatmap_data.loc[col] = 0
+        for val in unique_values:
+            count = (df[col] == val).sum()
+            percentage = count / len(df) * 100
+            heatmap_data.loc[col, val] = percentage
+            heatmap_text.loc[col, val] = f"{percentage:.0f}% ({count})"  # Agregar la frecuencia entre paréntesis
+    # Función para dividir una cadena en líneas cada n palabras
+# Función para dividir una cadena en líneas cada n palabras
+    def split_text_by_words(text, words_per_line):
+        words = text.split()
+        lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+        return '<br>'.join(lines)  # Usar '<br>' para un salto de línea en HTML
+
+    # Definir el número de palabras por línea
+    words_per_line = 6
+
+    # Dividir las etiquetas del eje Y en líneas
+    y_ticktext = [split_text_by_words(label, words_per_line) for label in heatmap_data.index]
+
+    fig = go.Figure(data=go.Heatmap(
+            z=heatmap_data.fillna(0).values,
+            x=heatmap_data.columns,
+            y=heatmap_data.index,
+            text=heatmap_text.fillna("").values,
+            colorscale=[[0, 'rgb(255, 255, 255)'], [1, 'rgb(0, 0, 255)']],
+            zmin=0,
+            zmax=100,
+            hoverinfo="text",
+            showscale=True
+        ))
+
+    # Permitir saltos de línea en las etiquetas del eje Y
+    fig.update_yaxes(tickvals=list(range(len(heatmap_data.index))),
+                 ticktext=y_ticktext)
+
+
+    # Añadir etiquetas de texto
+    for i, row in heatmap_data.iterrows():
+        for j, val in row.items():  # Cambiado iteritems() a items()
+            fig.add_annotation(
+                text=f"{heatmap_text.loc[i, j]}",
+                x=j,
+                y=i,
+                showarrow=False,
+                font=dict(color="black", size=12),
+                xanchor="center",
+                yanchor="middle"
+            )
+    
+    fig.update_layout(
+        xaxis_title="Heatmap",
+        xaxis=dict(side="top"),  # Colocar etiquetas de columnas en la parte superior
+        coloraxis_colorbar=dict(
+            title="Porcentaje",
+            tickvals=[0, 20, 40, 60, 80, 100],
+            ticktext=["0%", "20%", "40%", "60%", "80%", "100%"]
+        )
+    )
+    
+    # Calcular el nuevo tamaño del gráfico en función del número de filas
+    new_height = 200 + len(selected_columns) * 100
+    
+    return fig, {'display': 'block', 'height': new_height}
+
+
+
+
+
 def generate_table(column):
     column_values = df[column].unique()
     rows = []
@@ -615,7 +729,8 @@ def generate_table(column):
         ])
         rows.append(row)
     return rows
-# Callback para actualizar la tabla según la columna seleccionada
+
+
 @app.callback(
     Output('output-container', 'children'),
     [Input('dropdown-column', 'value')]
@@ -640,13 +755,14 @@ def update_df(n_clicks,columna, children):
         updated_df = df.copy()  # Copia del DataFrame para no modificar el original
         for child in children:
             input = child["props"]["children"][0]["props"]["children"]  # Obtener el ID del input
-            updated_df.loc[updated_df[columna] == input, columna] = int(child["props"]["children"][1]["props"]["value"])
+            updated_df.loc[updated_df[columna] == input, columna] = child["props"]["children"][1]["props"]["value"]
         # Actualizar el DataFrame original con los cambios
         df.update(updated_df)
-        df[columna] = df[columna].astype(int)
-        return 'Cambios confirmados y DataFrame actualizado.'
+        
+        return 'Dataframe updated'
     else:
-        return 'No se ha podido actualizar el dataframe (Recuerde que esto es para codificar)'
+        return ''
+
 
 # Callback para actualizar las opciones del checklist y establecerlas como seleccionadas
 @app.callback(
@@ -686,106 +802,67 @@ def update_filtered_data(selected_columns):
     filtered_df = df[selected_columns]
     return ""
 
-def generate_plots(loadings, eigenvalues, explained_variance):
-    # Gráfico de cargas factoriales
-    plt.figure(figsize=(10, 6))
-    sns.heatmap(loadings, annot=True, cmap='coolwarm', fmt='.2f', cbar=False)
-    plt.title('Gráfico de Cargas Factoriales')
-    plt.xlabel('Factores')
-    plt.ylabel('Variables')
-    factor_loading_plot = plt.gcf()
+# Callback para guardar el DataFrame en un archivo CSV cuando se presiona el botón
+@app.callback(
+    Output('output-container-button', 'children'),
+    Input('save-button', 'n_clicks')
+)
+def save_dataframe(n_clicks):
+    if n_clicks > 0:
+        # Nombre del archivo CSV
+        filename = 'updated_dataframe.csv'
+        # Guardar el DataFrame en un archivo CSV
+        df.to_csv(filename, index=False)
+        return f'DataFrame saved to {filename}'
+    return ''
 
-    # Gráfico de valores propios
-    plt.figure(figsize=(8, 6))
-    plt.plot(range(1, len(eigenvalues)+1), eigenvalues, marker='o', linestyle='--')
-    plt.title('Gráfico de Valores Propios')
-    plt.xlabel('Número de Factor')
-    plt.ylabel('Valor Propio')
-    plt.grid(True)
-    eigenvalue_plot = plt.gcf()
+@app.callback(
+    Output("abrir-informe-button", "n_clicks"),
+    Input("abrir-informe-button", "n_clicks")
+)
+def abrir_informe(n_clicks):
+    if n_clicks:
+        profile = ProfileReport(filtered_df, title="Pandas Profiling Report")
+        profile.to_file("tu_informe.html")
+        # Abre el informe en una nueva ventana o pestaña
+        webbrowser.open_new_tab("tu_informe.html")
 
-    # Gráfico de varianza explicada
-    plt.figure(figsize=(8, 6))
-    plt.plot(range(1, len(explained_variance[0])+1), explained_variance[0], marker='o', linestyle='-')
-    plt.title('Gráfico de Varianza Explicada')
-    plt.xlabel('Número de Factores')
-    plt.ylabel('Varianza Explicada')
-    plt.grid(True)
-    explained_variance_plot = plt.gcf()
+    # Si no se ha hecho clic en el botón, no hace nada
+    return None
 
-    return factor_loading_plot, eigenvalue_plot, explained_variance_plot
+
+
+
+
+
+
+
+
+
 
 
 @app.callback(
-    [Output('factor_loading_plot', 'figure'),
-     Output('eigenvalue_plot', 'figure'),
-     Output('explained_variance_plot', 'figure')
-     ],
-    [Input('analisisfactorial', 'n_clicks')],
-    [State('input-number', 'value')]
-  # Aquí debes especificar el elemento de entrada que desencadena la actualización de los gráficos
+    Output('download-html', 'data'),
+    Input('generate-html', 'n_clicks'),
+    State('selected-figures', 'data')
 )
-def update_plots(n_clicks,input_value):
-    # Aquí deberías realizar el análisis factorial exploratorio y obtener los resultados
-    # Luego, llamar a la función para generar los gráficos
-    if n_clicks:
-        if filtered_df.empty:
-            raise PreventUpdate
-        else:
-            scaler = StandardScaler()
+def generate_html(n_clicks, selected_figures):
+    if n_clicks > 0 and selected_figures:
+        html_content = '<html><body>'
+        for i,fig_data in enumerate(selected_figures):
+            # Convertir el diccionario de datos en un objeto Figure
+            fig = Figure(fig_data)
             
-            data_scaled = scaler.fit_transform(filtered_df)
-            correlation_matrix = filtered_df.corr()
-            fa = FactorAnalyzer(n_factors=input_value, rotation=None) 
-            fa.fit(data_scaled)
-            print(fa.sufficiency)
-            # Obtener valores propios
-            eigenvalues = fa.get_eigenvalues()
-            print(eigenvalues)
-            # Obtener cargas factoriales
-            loadings = fa.loadings_
-            print(loadings)
-            # Obtener varianza explicada
-            explained_variance = fa.get_factor_variance()
-            print(explained_variance)
-            # Crear un gráfico de líneas para la varianza explicada
-            # Crear el heatmap
-            heatmap_trace = go.Heatmap(z=correlation_matrix.values,
-                                    x=correlation_matrix.columns,
-                                    y=correlation_matrix.index,
-                                    colorscale='Viridis',
-                                    colorbar=dict(title='Correlation'))
-
-            heatmap_layout = go.Layout(title='Correlation Matrix',
-                                    xaxis=dict(title='Variables'),
-                                    yaxis=dict(title='Variables'))
-
-            heatmap_fig = go.Figure(data=[heatmap_trace], layout=heatmap_layout)
-
-            # Gráfico de cargas factoriales
-            loadings_trace = go.Heatmap(z=loadings.T,  # Transponer la matriz de cargas factoriales
-                                        x=filtered_df.columns,
-                                        y=list(range(1, loadings.shape[1] + 1)),  # Asegurarse de que el eje y tenga el tamaño correcto
-                                        colorscale='Viridis',
-                                        colorbar=dict(title='Loading'))
-            # Crear figuras
-            loadings_fig = go.Figure(data=[loadings_trace], layout=dict(title='Factor Loadings Heatmap', xaxis=dict(title='Variables'), yaxis=dict(title='Factor Number')))
-            bar_traces = []
-            for factor_num in range(loadings.shape[1]):  # Iterar sobre el segundo eje de 'loadings'
-                bar_trace = go.Bar(x=filtered_df.columns, y=loadings[:, factor_num], name=f'Factor {factor_num+1}')
-                bar_traces.append(bar_trace)
-
-            bar_fig = go.Figure(data=bar_traces, layout=dict(title='Factor Loadings per Variable', xaxis=dict(title='Variable'), yaxis=dict(title='Loading')))
-
-
-            # Retornar las figuras en tu callback
-            return heatmap_fig, loadings_fig, bar_fig
-    else:
-        # Si no se ha presionado el botón, no se genera ningún gráfico
-        raise PreventUpdate
-
-    
+            # Convertir la figura a imagen con las mismas dimensiones
+            img_bytes = pio.to_image(fig, format="png", engine="kaleido", width=1500, height=800)
+            img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+            
+            # Agregar la imagen al HTML
+            html_content += '<h2>Gráfico</h2>'
+            html_content += f'<img src="data:image/png;base64,{img_base64}" />'
+        
+        html_content += '</body></html>'
+        return dict(content=html_content, filename="report.html")
+    return dash.no_update
 if __name__ == '__main__':
     app.run_server(debug=True)
-
-
