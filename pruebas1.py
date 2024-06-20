@@ -1119,24 +1119,65 @@ if main_tab == "Descriptive Analysis":
 
                 if filter_var:
                     filas_tabla = []
-                    for col in columnas:
-                        st.subheader(f"Crosstab for {col}")
-                        contingency_table = pd.crosstab(df[col], df[filter_var], margins=True, margins_name='Total')
-                        output_table = calculate_percentages(contingency_table, columnas[0], filter_var)
-                        filas_tabla.append(output_table)
-                        st.table(output_table)
+                    unique_filter_values = df[filter_var].unique()
+                    orden_escala = sorted(df[columnas].stack().unique().tolist())
+                    
+                    for i, valor in enumerate(unique_filter_values):
+                        st.subheader(f"Crosstab for filter {valor}")
+                        filtered_df = df[df[filter_var] == valor]
+                        conteos_columnas = []
+                        conteos_columnas.append(pd.DataFrame({'Scale': orden_escala}))
+                        # Obtener el orden de la escala de la primera columna
+                        for columna in columnas:
+                            counts = filtered_df[columna].value_counts().reset_index()
+                            counts.columns = [columna, 'count']
+
+                            # Calcular el porcentaje
+                            total = counts['count'].sum()
+                            counts['percentage'] = (counts['count'] / total * 100).round(2)
+
+                            # Ordenar los conteos de acuerdo al orden de la escala determinado previamente
+                            counts = counts.set_index(counts.columns[0])
+                            # Asegurar que los índices a ordenar estén presentes en la escala y viceversa
+                            counts = counts.reindex(orden_escala).fillna(0).reset_index()
+                            counts['formatted'] = counts.apply(lambda row: f"{int(row['count'])} ({row['percentage']}%)", axis=1)
+                            counts = counts[['formatted']].rename(columns={'formatted': columna})
+
+                            conteos_columnas.append(counts)
+
+                        # Concatenar los conteos en columnas manteniendo el orden
+                        data_tables = pd.concat(conteos_columnas, axis=1)
+                        data_table = data_tables.to_dict('records')
+
+                        st.dataframe(pd.DataFrame(data_table))
                 else:
+                    orden_escala = sorted(df[columnas].stack().unique().tolist())
+
                     conteos_columnas = []
+
+                    # Incluir la columna de escala como primer elemento de conteos_columnas
+                    conteos_columnas.append(pd.DataFrame({'Scale': orden_escala}))
+
                     for columna in columnas:
                         counts = df[columna].value_counts().reset_index()
                         counts.columns = [columna, 'count']
-                        if columna == columnas[0]:
-                            counts.columns = ['Scale', columna]
-                        if columna != columnas[0]:
-                            counts = counts[['count']].rename(columns={'count': columna})
+
+                        # Calcular el porcentaje
+                        total = counts['count'].sum()
+                        counts['percentage'] = (counts['count'] / total * 100).round(2)
+
+                        # Ordenar los conteos de acuerdo al orden de la escala determinado previamente
+                        counts = counts.set_index(counts.columns[0])
+                        counts = counts.reindex(orden_escala).fillna(0).reset_index()
+                        counts['formatted'] = counts.apply(lambda row: f"{int(row['count'])} ({row['percentage']}%)", axis=1)
+                        counts = counts[['formatted']].rename(columns={'formatted': columna})
+
                         conteos_columnas.append(counts)
+                    
+                    # Concatenar los conteos en columnas manteniendo el orden
                     data_tables = pd.concat(conteos_columnas, axis=1)
                     data_table = data_tables.to_dict('records')
+                    
                     st.dataframe(pd.DataFrame(data_table))
 
         # Llama a la función para mostrar la gráfica y los botones de reportes si ya se ha generado una gráfica
@@ -1176,6 +1217,63 @@ if main_tab == "Descriptive Analysis":
                 st.session_state['last_fig'] = heatmap_fig
                 st.session_state['fig_width'] = heatmap_fig.layout.width
                 st.session_state['fig_height'] = heatmap_fig.layout.height
+            if filter_var:
+                filas_tabla = []
+                unique_filter_values = df[filter_var].unique()
+                orden_escala = sorted(df[selected_columns].stack().unique().tolist())
+                
+                for i, valor in enumerate(unique_filter_values):
+                    st.subheader(f"Crosstab for filter {valor}")
+                    filtered_df = df[df[filter_var] == valor]
+                    conteos_columnas = []
+                    conteos_columnas.append(pd.DataFrame({'Scale': orden_escala}))
+                    # Obtener el orden de la escala de la primera columna
+                    for columna in selected_columns:
+                        counts = filtered_df[columna].value_counts().reset_index()
+                        counts.columns = [columna, 'count']
+                        # Calcular el porcentaje
+                        total = counts['count'].sum()
+                        counts['percentage'] = (counts['count'] / total * 100).round(2)
+                        # Ordenar los conteos de acuerdo al orden de la escala determinado previamente
+                        counts = counts.set_index(counts.columns[0])
+                        # Asegurar que los índices a ordenar estén presentes en la escala y viceversa
+                        counts = counts.reindex(orden_escala).fillna(0).reset_index()
+                        counts['formatted'] = counts.apply(lambda row: f"{int(row['count'])} ({row['percentage']}%)", axis=1)
+                        counts = counts[['formatted']].rename(columns={'formatted': columna})
+                        conteos_columnas.append(counts)
+                    # Concatenar los conteos en columnas manteniendo el orden
+                    data_tables = pd.concat(conteos_columnas, axis=1)
+                    data_table = data_tables.to_dict('records')
+                    st.dataframe(pd.DataFrame(data_table))
+            else:
+                orden_escala = sorted(df[selected_columns].stack().unique().tolist())
+                
+                conteos_columnas = []
+                
+                # Incluir la columna de escala como primer elemento de conteos_columnas
+                conteos_columnas.append(pd.DataFrame({'Scale': orden_escala}))
+                
+                for columna in selected_columns:
+                    counts = df[columna].value_counts().reset_index()
+                    counts.columns = [columna, 'count']
+                    
+                    # Calcular el porcentaje
+                    total = counts['count'].sum()
+                    counts['percentage'] = (counts['count'] / total * 100).round(2)
+                    
+                    # Ordenar los conteos de acuerdo al orden de la escala determinado previamente
+                    counts = counts.set_index(counts.columns[0])
+                    counts = counts.reindex(orden_escala).fillna(0).reset_index()
+                    counts['formatted'] = counts.apply(lambda row: f"{int(row['count'])} ({row['percentage']}%)", axis=1)
+                    counts = counts[['formatted']].rename(columns={'formatted': columna})
+                    
+                    conteos_columnas.append(counts)
+                
+                # Concatenar los conteos en columnas manteniendo el orden
+                data_tables = pd.concat(conteos_columnas, axis=1)
+                data_table = data_tables.to_dict('records')
+                
+                st.dataframe(pd.DataFrame(data_table))
         show_graph_and_table()
     elif nested_tab == "Numeric Charts":
         st.subheader("Numeric charts")
