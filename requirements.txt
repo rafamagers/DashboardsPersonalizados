@@ -5,5 +5,5 @@ wordcloud
 matplotlib
 numpy
 googletrans==4.0.0rc1
-nltk
+nltk==3.8.1
 kaleido
