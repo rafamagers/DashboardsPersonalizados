@@ -1,4 +1,33 @@
 /* styles.css */
+/* Contenedor principal */
+/* Contenedor principal */
+.container {
+    display: flex;
+    height: 100vh; /* Altura total de la ventana */
+}
+
+/* Barra lateral */
+.sidebar {
+    width: 20%; /* Ancho de la barra lateral */
+    height: 100%; /* Altura de la barra lateral igual a la ventana */
+    position: fixed; /* Barra lateral fija */
+    top: 0; /* Fijar en la parte superior */
+    left: 0; /* Fijar a la izquierda */
+    background-color: #f8f9fa; /* Color de fondo */
+    padding: 20px; /* Espacio interno */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centrar verticalmente */
+    z-index: 1; /* Asegurar que esté encima del contenido */
+}
+
+/* Contenido principal */
+.content {
+    width: 80%; /* Ancho del contenido principal */
+    padding: 20px; /* Espacio interno */
+    margin-left: 20%; /* Dejar espacio para la barra lateral */
+}
+
 h1 {
     color: #fff; /* Color de texto blanco */
     font-family: 'Arial Black', sans-serif; /* Fuente negrita */
@@ -15,7 +44,25 @@ h1 {
 body {
     background-color: #f8f9fa; /* Color de fondo gris claro */
 }
+input[type="text"] {
+    width: 90%; /* Hacer que el campo de entrada ocupe el 100% del ancho del contenedor */
+    padding: 10px; /* Añadir relleno interno para un mejor aspecto */
+    margin-top: 10px; /* Añadir margen superior para espaciar los elementos */
+    margin-bottom: 10px; /* Añadir margen inferior para espaciar los elementos */
+    border: 1px solid #0073e6; /* Añadir un borde de color azul */
+    border-radius: 10px; /* Bordes redondeados */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Añadir una sombra ligera para profundidad */
+    font-size: 16px; /* Aumentar el tamaño de la fuente */
+    background-color: #f9f9f9; /* Color de fondo claro */
+    color: #333; /* Color del texto */
+}
 
+/* Cambiar el estilo del campo de entrada cuando esté enfocado */
+input[type="text"]:focus {
+    border-color: #005bb5; /* Cambiar el color del borde al enfocarse */
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.2); /* Añadir una sombra más pronunciada al enfocarse */
+    outline: none; /* Quitar el borde de enfoque predeterminado del navegador */
+}
 /* Estilos para la sección de carga de datos */
 .upload-section {
     margin: auto; /* Centrar la sección horizontalmente */
@@ -50,6 +97,17 @@ body {
 .upload-text {
     font-weight: bold; /* Texto en negrita */
 }
+#table1, #table2 {
+    max-height: 300px;  /* Ajusta según necesites */
+    overflow-y: scroll;
+    width: 50%;         /* Ajusta según necesites */
+    min-width: 300px;   /* Ajusta según necesites */
+}
+
+.data-table-cell {
+    text-align: left;
+    padding: 5px;
+}
 
 /* Estilos para los dropdowns */
 .dropdown-container {
@@ -61,6 +119,8 @@ body {
 .dropdown-item {
     margin-right: 10px;
     margin-bottom: 10px;
+    text-overflow: ellipsis;
+    display: block;
 }
 
 /* Estilos para las etiquetas de los dropdowns */
@@ -71,7 +131,7 @@ body {
 
 /* Estilos para los dropdowns */
 .dropdown {
-    width: 500px;
+    width: 700px;
     
     
     margin-bottom: 20px;
@@ -103,9 +163,21 @@ body {
     cursor: pointer; /* Cursor al pasar el ratón */
     margin-bottom: 20px;
 }
-
+.show-button {
+    background-color: hsla(201, 32%, 46%, 0.849); /* Color de fondo verde */
+    color: rgb(8, 8, 8); /* Color del texto blanco */
+    padding: 10px 20px; /* Relleno del botón */
+    font-size: 16px; /* Tamaño del texto */
+    border: none; /* Borde */
+    border-radius: 5px; /* Borde redondeado */
+    cursor: pointer; /* Cursor al pasar el ratón */
+    margin-bottom: 20px;
+}
+.show-button:hover {
+    background-color: #3036aa; /* Cambiar color de fondo al pasar el ratón */
+}
 .confirm-button:hover {
-    background-color: #161fd0; /* Cambiar color de fondo al pasar el ratón */
+    background-color: #3036aa; /* Cambiar color de fondo al pasar el ratón */
 }
 #upload-data {
     margin-bottom: 50px;
