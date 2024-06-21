@@ -1354,8 +1354,17 @@ elif main_tab == "Data Codification":
 
         st.subheader("Save changes to CSV")
         if st.button("Save updated DF"):
-            st.session_state.df.to_csv('updated_dataframe.csv', index=False)
-            st.success('DataFrame saved to updated_dataframe.csv')
+            csv = st.session_state.df.to_csv(index=False)
+            # Agrega un botón de descarga en Streamlit
+            st.download_button(
+                label="Descargar CSV",
+                data=csv,
+                file_name='updated_dataframe.csv',
+                mime='text/csv',
+            )
+
+            # Mensaje de éxito opcional
+            st.success('El DataFrame está listo para ser descargado.')
 elif main_tab == "Generate Report":
     st.subheader("Download Report")
     if st.button("Generate Report"):
