@@ -150,7 +150,7 @@ def generate_wordcloud(text_list):
 
 # Función para generar wordcloud con filtro
 def generate_wordcloud_with_filter(df, x_axis, filtro=None):
-    if filtro:
+    if filtro!="No filter":
         unique_values = df[filtro].dropna().unique()
         num_subplots = len(unique_values)
         
@@ -260,8 +260,8 @@ def calcular_medias(df, nombres_columnas):
 
 # Función para generar paleta de colores
 def generate_color_palette(n):
-    start_color = np.array([255, 51, 51, 0.8])  # Rojo
-    end_color = np.array([119, 255, 51, 1])    # Verde
+    end_color = np.array([0, 57, 255, 0.8])  # Rojo
+    start_color = np.array([1, 26, 109, 1])    # Verde
     colors = np.linspace(start_color, end_color, n)
     rgba_colors = [f'rgba({int(r)}, {int(g)}, {int(b)}, {a:.2f})' for r, g, b, a in colors]
     return rgba_colors
@@ -280,7 +280,7 @@ def calcular_porcentajes_ocurrencias(df, nombres_columnas, toplabels):
 
 # Función para generar gráfico de barras horizontales
 def generate_horizontal_bar_chart(df, column_names, filtro):
-    if filtro:
+    if filtro!="No filter":
         unique_values = df[filtro].dropna().unique()
         num_subplots = len(unique_values)
         fig = make_subplots(
@@ -340,20 +340,20 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
 
 # Función para generar gráfico radar
 def generate_radar_chart(df, columnas, filtro):
-    unique_filter_values = df[filtro].unique() if filtro else ["nada"]
+    unique_filter_values = df[filtro].unique() if filtro!="No filter" else ["nada"]
     num_subplots = len(unique_filter_values)
     
     fig = make_subplots(rows=(num_subplots+1)//2, cols=2, specs=[[{'type': 'polar'}, {'type': 'polar'}] for _ in range((num_subplots+1)//2)])
     
     for i, valor in enumerate(unique_filter_values):
-        filtered_df = df[df[filtro] == valor] if filtro else df
+        filtered_df = df[df[filtro] == valor] if filtro!="No filter" else df
         medias_columnas = calcular_medias(filtered_df, columnas)
-        y_data = [elemento.split("-")[-1] for elemento in columnas]
+        y_data = ["~"+elemento.split("-")[-1] for elemento in columnas]
         fig.add_trace(go.Scatterpolar(
             r=medias_columnas,
             theta=y_data,
             fill='toself',
-            name=f'Filter: {valor}' if filtro else 'Radar chart'
+            name=f'Filter: {valor}' if filtro!="No filter" else 'Radar chart'
         ), row=(i+2)//2, col=i%2+1)
         
         fig.update_polars(
@@ -373,6 +373,10 @@ def generate_radar_chart(df, columnas, filtro):
         showlegend=True,
         title_text="Radar Chart",
     )
+    if filtro=="No filter":
+        fig.update_layout(
+            showlegend=False,
+        )
     return fig
 def show_graph_and_table():
     if st.session_state['last_fig']:
@@ -386,7 +390,7 @@ def show_graph_and_table():
 
 # Función para generar gráfico de barras múltiples
 def generate_multibar_chart(df, columnas, filtro, likert):
-    unique_filter_values = df[filtro].unique() if filtro else ["nada"]
+    unique_filter_values = df[filtro].unique() if filtro!="No filter" else ["nada"]
     num_subplots = len(unique_filter_values)
     
     fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True)
@@ -398,16 +402,16 @@ def generate_multibar_chart(df, columnas, filtro, likert):
     if valores_unicos.dtype == np.int64:
         numerosmode = True
         valoresdecolumna = sorted(valores_unicos)
-        if likert=="agree5":
+        if likert=="Agreement (5)":
             top_labels = ["Strongly disagree","Disagree", "Neutral", "Agree", "Strongly agree"]
-        elif likert=="agree6":
-            top_labels = ["Agree Very Strongly","Agree Strongly", "Agree", "Disagree", "Disagree Strongly", "Disagree Very Strongly"] 
-        elif likert=="quality5":
+        elif likert=="Agreement (6)":
+            top_labels = ["Disagree Very Strongly", "Disagree Strongly", "Disagree", "Agree","Agree Strongly","Agree Very Strongly"] 
+        elif likert=="Quality (5)":
             top_labels = ["Very Poor","Below average", "Average", "Above average", "Excellent"]
-        elif likert=="frecuency6":
-            top_labels = ["Always","Very frequently","Occacionally", "Rarely", "Very rarely", "Never"] 
-        elif likert=="frecuency5":
-            top_labels = ["Always","Very Often", "Sometimes", "Rarely", "Never"] 
+        elif likert=="Frequency (6)":
+            top_labels = [ "Never", "Very rarely", "Rarely","Occacionally","Very frequently","Always"] 
+        elif likert=="Frequency (5)":
+            top_labels = [ "Never", "Rarely", "Sometimes","Very Often","Always"] 
         else:
             numerosmode = False
             print("normal")
@@ -439,10 +443,10 @@ def generate_multibar_chart(df, columnas, filtro, likert):
             #Ya depende del tamaño de la matrix incluyendo la media
             for xd, yd in zip(x_data, y_data):
                 auxyd = yd
-                yd = f'{str(yd)}',
+                yd = str(yd)
                 fig.add_trace(go.Bar(
                     x=[xd[j]], 
-                    y=["~"+str(yd)],
+                    y=["~"+yd],
                     orientation='h',
                     marker=dict(
                         color=colors[j],
@@ -450,13 +454,13 @@ def generate_multibar_chart(df, columnas, filtro, likert):
                     ),
                    
                 ), row=i+1, col=1)
-    
+                texto = '*' if xd[0] < 4 else f'{xd[0]}%'
                 # Anotaciones de porcentajes en el eje x
                 annotations.append(dict(
                     xref=f'x{i+1}', yref=f'y{i+1}',
-                    x=xd[0] / 2, y="~"+str(yd),
-                    text=f'{xd[0]}%',
-                    font=dict(family='Arial', size=14, color='rgb(0, 0, 0)'),
+                    x=xd[0] / 2, y="~"+yd,
+                    text=texto,
+                    font=dict(family='Arial', size=14, color='rgb(255, 255, 255)'),
                     showarrow=False
                 ))
                 if auxyd == y_data[-1] and i==0:
@@ -465,19 +469,25 @@ def generate_multibar_chart(df, columnas, filtro, likert):
                         labelito = top_labels[valoresdecolumna[0]-1]
                     else:
                         labelito = top_labels[0]
+                    color_square = f"<span style='color:{colors[0]}'>■</span>"
+                     # Crear el texto con el cuadrado y el texto de la etiqueta
+                    texto_con_color = f"{color_square} {labelito}"
                     annotations.append(dict(xref='x1', yref='y1',
-                                            x=xd[0] / 2 , y=len(y_data)+1,
-                                            text=f'{labelito}',
+                                            #x=xd[0] / 2 , 
+                                            x=10, 
+                                            y=len(y_data)+1,
+                                            text=texto_con_color,
                                             font=dict(family='Arial', size=14,
                                                     color='rgb(67, 67, 67)'),
                                             showarrow=False))
                 space = xd[0]
                 for k in range(1, len(xd)):
+                    texto = '*' if xd[k] < 4 else f'{xd[k]}%'
                     annotations.append(dict(
                         xref=f'x{i+1}', yref=f'y{i+1}',
-                        x=space + (xd[k] / 2), y="~"+str(yd),
-                        text=f'{xd[k]}%',
-                        font=dict(family='Arial', size=14, color='rgb(0, 0, 0)'),
+                        x=space + (xd[k] / 2), y=f'~{yd}',
+                        text=texto,
+                        font=dict(family='Arial', size=14, color='rgb(255, 255, 255)'),
                         showarrow=False
                     ))
                     if auxyd == y_data[-1] and i==0:
@@ -486,9 +496,15 @@ def generate_multibar_chart(df, columnas, filtro, likert):
                             labelito = top_labels[valoresdecolumna[k]-1]
                         else:
                             labelito = top_labels[k]
+                        color_square = f"<span style='color:{colors[k]}'>■</span>"
+                     # Crear el texto con el cuadrado y el texto de la etiqueta
+                        texto_con_color = f"{color_square} {labelito}"
+                        
                         annotations.append(dict(xref=f'x{i+1}', yref='y1',
-                                                x=space + (xd[k] / 2) , y=len(y_data)+1,
-                                                text=f'{labelito}',
+                                                #x=space + (xd[k] / 2) , 
+                                                x= 10+ k/len(top_labels)*100 , 
+                                                y=len(y_data)+1,
+                                                text=texto_con_color,
                                                 font=dict(family='Arial', size=14,
                                                         color='rgb(67, 67, 67)'),
                                                 showarrow=False))
@@ -520,24 +536,26 @@ def update_heatmap(selected_columns, filter_var):
         return go.Figure(), 200
     
     first_col = selected_columns[0]
-    if not filter_var:
+    if filter_var == "No filter":
         unique_filter_values = ["nada"]
     else:
         unique_filter_values = df[filter_var].unique()
+        unique_filter_values_labels = unique_filter_values.astype(str)
+
     
     num_subplots = len(unique_filter_values)
     
     if unique_filter_values[0]=="nada":
         fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True)
     else:
-        fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True, subplot_titles=unique_filter_values)
+        fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True, subplot_titles=unique_filter_values_labels)
     
     for i, valor in enumerate(unique_filter_values):
         filtered_df = df if valor == 'nada' else df[df[filter_var] == valor]
-        unique_values = sorted(set(filtered_df[first_col].unique()))
+        unicos = filtered_df[first_col].unique()
+        unique_values = sorted(set(unicos))
         heatmap_data = pd.DataFrame(columns=unique_values)
         heatmap_text = pd.DataFrame(columns=unique_values)
-        
         for col in selected_columns:
             heatmap_data.loc[col] = 0
             for val in unique_values:
@@ -596,12 +614,26 @@ def update_heatmap(selected_columns, filter_var):
 def update_second_dropdown_options(selected_column):
     if selected_column is None:
         return [], True, True
-    
-    unique_values = set(df[selected_column].unique())
-    matching_columns = [
-        col for col in df.columns
-        if set(df[col].unique()) == unique_values and col != selected_column
-    ]
+
+    if pd.api.types.is_numeric_dtype(df[selected_column]):
+        min_base = df[selected_column].min()
+        max_base = df[selected_column].max()
+        
+        matching_columns = [
+            col for col in df.columns
+            if pd.api.types.is_numeric_dtype(df[col]) and 
+            df[col].min() == min_base and 
+            df[col].max() == max_base and 
+            col != selected_column
+        ]
+    else:
+        unique_values = set(df[selected_column].unique())
+        
+        matching_columns = [
+            col for col in df.columns
+            if set(df[col].unique()) == unique_values and col != selected_column
+        ]
+
     options = [{'label': col, 'value': col} for col in matching_columns]
     return options, False, False
 # Lista global para almacenar gráficos y descripciones
@@ -611,7 +643,7 @@ def update_second_dropdown_options(selected_column):
 
 
 def generate_mean_polygon_chart(df, selected_x, selected_y, filter_var):
-    if filter_var:
+    if filter_var!="No filter":
         df_grouped = df.groupby([filter_var, selected_x]).agg({selected_y: 'mean'}).reset_index()
         fig = px.line(df_grouped, x=selected_x, y=selected_y, color=filter_var, markers=True)
     else:
@@ -625,7 +657,7 @@ def generate_mean_polygon_chart(df, selected_x, selected_y, filter_var):
     )
     return fig
 def generate_violin_chart(df, selected_x, selected_y, filter_var, show_points):
-    if filter_var:
+    if filter_var!= "No filter":
         fig = px.violin(df, y=selected_y, x=selected_x, color=filter_var, box=True,
                         points='all' if show_points else False,
                         hover_data=df.columns)
@@ -646,7 +678,7 @@ def generate_violin_chart(df, selected_x, selected_y, filter_var, show_points):
     )
     return fig
 def generate_ridgeline_chart(df, selected_x, selected_y, filter_var):
-    if filter_var:
+    if filter_var!="No filter":
         unique_values = df[filter_var].unique()
         fig = make_subplots(rows=len(unique_values), cols=1, shared_yaxes=True)
         clases = df[selected_x].unique()
@@ -699,7 +731,7 @@ def generate_ridgeline_chart(df, selected_x, selected_y, filter_var):
     
     return fig
 def generate_displot_chart(df, selected_x, selected_y, filter_var):
-    if filter_var:
+    if filter_var!="No filter":
         unique_values = df[filter_var].unique()
         fig = make_subplots(rows=len(unique_values), cols=1, shared_yaxes=True)
 
@@ -865,7 +897,7 @@ def generate_html_report(report_data):
         </div>
         {figures}
         <div class="footer">
-            <p>Autogenerated report</p>
+            <p>Autogenerated Report</p>
         </div>
     </body>
     </html>
@@ -950,9 +982,9 @@ if main_tab == "Descriptive Analysis":
             st.text("2: Select your first categorical variable (If you selected a word cloud chart, make sure this variable corresponds to an open-ended question).")
             st.text("3: If you selected to graph a contingency table, choosing a filter is mandatory to act as a second variable,\n   if you chose another graph it will be an optional variable to visualise how change your first variable according to the chosen filter.")
             st.text("4: Click on Sumbit to visualise your graphic")
-        tipo_grafico = st.selectbox("Choose your chart:", ['','Bar Chart', 'Pie Chart', 'Contingency Table', 'Word Cloud'])
+        tipo_grafico = st.selectbox("Choose your chart:", ['Bar Chart', 'Pie Chart', 'Contingency Table', 'Word Cloud'])
         x_axis = st.selectbox("Choose your variable:",[""]+ columns)
-        filtro = st.selectbox("Choose your filter:",[""]+ columns)
+        filtro = st.selectbox("Choose your filter:",["No filter"]+ columns)
         
         if st.button("Submit"):
             if tipo_grafico and x_axis:
@@ -962,7 +994,7 @@ if main_tab == "Descriptive Analysis":
                     fig = go.Figure()
                     data_table = []
         
-                    if filtro:
+                    if filtro != "No filter":
                         filtered_dfs = aux_df.groupby(filtro)
                         for filter_value, filtered_df in filtered_dfs:
                             counts = filtered_df[x_axis].value_counts()
@@ -1012,7 +1044,7 @@ if main_tab == "Descriptive Analysis":
                     fig = go.Figure()
                     data_table = []
         
-                    if filtro:
+                    if filtro!="No filter":
                         unique_values = aux_df[filtro].unique()
                         fig = make_subplots(rows=1, cols=len(unique_values), specs=[[{'type': 'domain'}]*len(unique_values)])
                         annotations = []
@@ -1050,7 +1082,7 @@ if main_tab == "Descriptive Analysis":
                     fig = go.Figure()
                     data_table = []
         
-                    if filtro:
+                    if filtro!="No filter":
                         contingency_table = pd.crosstab(df[x_axis], df[filtro])
                         fig = go.Figure(data=go.Heatmap(
                             z=contingency_table.values,
@@ -1074,7 +1106,7 @@ if main_tab == "Descriptive Analysis":
         
                 elif tipo_grafico == 'Word Cloud':
                     fig = generate_wordcloud_with_filter(df, x_axis, filtro)
-                    data_table = df[[x_axis, filtro]].dropna().to_dict('records') if filtro else df[[x_axis]].dropna().to_dict('records')
+                    data_table = df[[x_axis, filtro]].dropna().to_dict('records') if filtro!="No filter" else df[[x_axis]].dropna().to_dict('records')
         
                 else:
                     st.error("Tipo de gráfico no reconocido.")
@@ -1095,9 +1127,9 @@ if main_tab == "Descriptive Analysis":
             st.text("3: You can optionally choose a filter that will allow you to visualise the change of your set of variables according to the chosen filter.")
             st.text("4: If you have chosen the Multibar chart option and in addition your set of variables are numerically coded, you can change your scale to Likert.")
             st.text("5: Click on Sumbit to visualise your graphic")
-        chart_type = st.selectbox("Choose your chart:", ['','Radar Chart', 'Multi bar Chart', 'Tick bar Chart'])
+        chart_type = st.selectbox("Choose your chart:", [ 'Multi bar Chart', 'Radar Chart','Tick bar Chart'])
         variable_group = st.selectbox("Choose your group of variables (Matrix):",[""]+ opciones_especiales, format_func=lambda option: option['label'] if option else None)
-        filter_var = st.selectbox("Choose your filter:",[""]+ columns)
+        filter_var = st.selectbox("Choose your filter:",["No filter"]+ columns)
         likert_scale = st.selectbox("Choose your likert scale (Only Multi plot):", ['Original', 'Agreement (5)', 'Agreement (6)', 'Quality (5)', 'Frequency (5)', 'Frequency (6)'])
         if st.button("Submit"):
             if variable_group:
@@ -1109,6 +1141,7 @@ if main_tab == "Descriptive Analysis":
                 elif chart_type == 'Radar Chart':
                     fig = generate_radar_chart(df, columnas, filter_var)
                 elif chart_type == 'Multi bar Chart':
+                    st.text("Note: the label * mean less than 4%")
                     fig = generate_multibar_chart(df, columnas, filter_var, likert_scale)
 
                 if fig:
@@ -1117,7 +1150,7 @@ if main_tab == "Descriptive Analysis":
                     st.session_state['fig_height'] = fig.layout.height
                     st.plotly_chart(fig)
 
-                if filter_var:
+                if filter_var!="No filter":
                     filas_tabla = []
                     unique_filter_values = df[filter_var].unique()
                     orden_escala = sorted(df[columnas].stack().unique().tolist())
@@ -1207,7 +1240,7 @@ if main_tab == "Descriptive Analysis":
                 selected_columns.append(var2)
                 st.session_state['selected_columns'] = selected_columns
 
-        filter_var = st.selectbox("Select your filter:", [""]+columns)
+        filter_var = st.selectbox("Select your filter:", ["No filter"]+columns)
         show_table = st.button("Sumbit")
 
         if show_table:
@@ -1217,7 +1250,7 @@ if main_tab == "Descriptive Analysis":
                 st.session_state['last_fig'] = heatmap_fig
                 st.session_state['fig_width'] = heatmap_fig.layout.width
                 st.session_state['fig_height'] = heatmap_fig.layout.height
-            if filter_var:
+            if filter_var != "No filter":
                 filas_tabla = []
                 unique_filter_values = df[filter_var].unique()
                 orden_escala = sorted(df[selected_columns].stack().unique().tolist())
@@ -1288,7 +1321,7 @@ if main_tab == "Descriptive Analysis":
         chart_type = st.selectbox("Select your chart:", ['Mean polygon chart', 'Violin chart', 'Ridgeline chart', 'Displot chart'])
         cat_var = st.selectbox("Select your first variable (categoric):", [""]+columns)
         num_var = st.selectbox("Select your second variable (numeric):", [""]+numeric_columns)
-        filter_var = st.selectbox("Select your filter (categoric):", [""]+columns)
+        filter_var = st.selectbox("Select your filter (categoric):", ["No filter"]+columns)
         if chart_type == 'Violin chart':
             show_points = st.checkbox("Show Points")
         else:
@@ -1342,16 +1375,18 @@ elif main_tab == "Data Codification":
             if new_column_name:
                 st.session_state.df.rename(columns={column_to_edit: new_column_name}, inplace=True)
                 st.success(f"Column name changed to '{new_column_name}'")
+                st.experimental_rerun()  # Refrescar la interfaz de usuario
+ 
 
         st.subheader("Automatic data codification")
         if st.button("Translate column to English"):
             result = translate_column(st.session_state.df, column_to_edit)
             st.success(result)
-
+            st.experimental_rerun()
         if st.button("Translate entire dataframe to English"):
             result = translate_dataframe(st.session_state.df)
             st.success(result)
-
+            st.experimental_rerun()
         st.subheader("Save changes to CSV")
         if st.button("Save updated DF"):
             csv = st.session_state.df.to_csv(index=False)
