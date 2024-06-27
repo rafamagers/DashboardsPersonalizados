@@ -1370,6 +1370,7 @@ elif main_tab == "Data Codification":
                 for old_value, new_value in new_values.items():
                     st.session_state.df[column_to_edit].replace(old_value, new_value, inplace=True)
                 st.success("Values updated successfully")
+                st.experimental_rerun()
         new_column_name = st.text_input("Edit column name:")
         if st.button("Confirm name change"):
             if new_column_name:
