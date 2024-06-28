@@ -221,7 +221,20 @@ def calculate_percentages(table, x, y):
                 row_perc = row_percentages.loc[row, col]
                 col_perc = col_percentages.loc[row, col]
                 total_perc = total_percentage.loc[row, col]
-                output_table.loc[row, col] = f"{count}  ({row_perc:.3f}, {col_perc:.3f}, {total_perc:.3f})"
+                #output_table.loc[row, col] = f"{count}  ({row_perc:.3f}, {col_perc:.3f}, {total_perc:.3f})"
+                output_table.loc[row, col] = f"{count}"
+                if totalper or rowper or colper:
+                    output_table.loc[row, col] +=f" ("
+                    dos = False
+                    if totalper:
+                        output_table.loc[row, col] +=f"{total_perc:.3f}"
+                        dos = True
+                    if rowper:
+                        output_table.loc[row, col] += f"{', ' if dos else ''}{row_perc:.3f}"
+                        dos=True
+                    if colper:
+                        output_table.loc[row, col] += f"{', ' if dos else ''}{col_perc:.3f}" 
+                    output_table.loc[row, col] +=f")"                  
             else:
                 output_table.loc[row, col] = f"{count}"
     return output_table
@@ -309,7 +322,7 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
             )
 
         fig.update_layout(
-            height=300 * num_subplots * len(column_names) / 8,
+            height=150+ 350 * num_subplots * len(column_names) / 8,
             showlegend=False
         )
 
@@ -985,7 +998,11 @@ if main_tab == "Descriptive Analysis":
         tipo_grafico = st.selectbox("Choose your chart:", ['Bar Chart', 'Pie Chart', 'Contingency Table', 'Word Cloud'])
         x_axis = st.selectbox("Choose your variable:",[""]+ columns)
         filtro = st.selectbox("Choose your filter:",["No filter"]+ columns)
-        
+        if (filtro!="No filter" and tipo_grafico != "Wordcloud"):
+            st.text("Choose what percentage you want to see in the table (order: N/Table %, N/row %, N/column %):")
+            totalper = st.checkbox("N/Table total %", True)
+            rowper = st.checkbox("N/Row total %")
+            colper = st.checkbox("N/Column total %")
         if st.button("Submit"):
             if tipo_grafico and x_axis:
                 if tipo_grafico == 'Bar Chart':
@@ -1151,18 +1168,83 @@ if main_tab == "Descriptive Analysis":
                     st.plotly_chart(fig)
 
                 if filter_var!="No filter":
-                    filas_tabla = []
-                    unique_filter_values = df[filter_var].unique()
-                    orden_escala = sorted(df[columnas].stack().unique().tolist())
-                    
-                    for i, valor in enumerate(unique_filter_values):
-                        st.subheader(f"Crosstab for filter {valor}")
-                        filtered_df = df[df[filter_var] == valor]
+                    if chart_type == "Tick bar Chart":
+                        unique_filter_values = df[filter_var].unique()
+                        orden_escala = sorted(df[columnas].stack().unique().tolist())
+
+                        for i, valor in enumerate(unique_filter_values):
+                            datos = []
+                            st.subheader(f"Table for filter {valor}")
+                            filtered_df = df[df[filter_var] == valor]
+                            for col in columnas:
+                                total_rows = filtered_df.shape[0]
+                                word_count = filtered_df[col].notna().sum()
+                                frequency = (word_count / total_rows) * 100
+                                datos.append([col.split("-")[-1], word_count, frequency])
+
+                            # Crear un DataFrame con los datos calculados
+                            df_resultado = pd.DataFrame(datos, columns=[columnas[0].split("-")[0], 'Count', '% Of total'])
+                            df_resultado['% Of total'] = df_resultado['% Of total'].apply(lambda x: f"{x:.3f}%")
+                            # Mostrar el DataFrame en Streamlit
+                            st.dataframe(df_resultado)
+                    else:
+
+                        unique_filter_values = df[filter_var].unique()
+                        orden_escala = sorted(df[columnas].stack().unique().tolist())
+
+                        for i, valor in enumerate(unique_filter_values):
+                            st.subheader(f"Crosstab for filter {valor}")
+                            filtered_df = df[df[filter_var] == valor]
+                            conteos_columnas = []
+                            conteos_columnas.append(pd.DataFrame({'Scale': orden_escala}))
+                            # Obtener el orden de la escala de la primera columna
+                            for columna in columnas:
+                                counts = filtered_df[columna].value_counts().reset_index()
+                                counts.columns = [columna, 'count']
+
+                                # Calcular el porcentaje
+                                total = counts['count'].sum()
+                                counts['percentage'] = (counts['count'] / total * 100).round(2)
+
+                                # Ordenar los conteos de acuerdo al orden de la escala determinado previamente
+                                counts = counts.set_index(counts.columns[0])
+                                # Asegurar que los índices a ordenar estén presentes en la escala y viceversa
+                                counts = counts.reindex(orden_escala).fillna(0).reset_index()
+                                counts['formatted'] = counts.apply(lambda row: f"{int(row['count'])} ({row['percentage']}%)", axis=1)
+                                counts = counts[['formatted']].rename(columns={'formatted': columna})
+
+                                conteos_columnas.append(counts)
+
+                            # Concatenar los conteos en columnas manteniendo el orden
+                            data_tables = pd.concat(conteos_columnas, axis=1)
+                            data_table = data_tables.to_dict('records')
+
+                            st.dataframe(pd.DataFrame(data_table))
+                else:
+                    if chart_type == 'Tick bar Chart':
+                        datos = []
+
+                        for col in columnas:
+                            total_rows = df.shape[0]
+                            word_count = df[col].notna().sum()
+                            frequency = (word_count / total_rows) * 100
+                            datos.append([col.split("-")[-1], word_count, frequency])
+
+                        # Crear un DataFrame con los datos calculados
+                        df_resultado = pd.DataFrame(datos, columns=[columnas[0].split("-")[0], 'Count', '% Of total'])
+                        df_resultado['% Of total'] = df_resultado['% Of total'].apply(lambda x: f"{x:.3f}%")
+                        # Mostrar el DataFrame en Streamlit
+                        st.dataframe(df_resultado)
+                    else:
+                        orden_escala = sorted(df[columnas].stack().unique().tolist())
+
                         conteos_columnas = []
+
+                        # Incluir la columna de escala como primer elemento de conteos_columnas
                         conteos_columnas.append(pd.DataFrame({'Scale': orden_escala}))
-                        # Obtener el orden de la escala de la primera columna
+
                         for columna in columnas:
-                            counts = filtered_df[columna].value_counts().reset_index()
+                            counts = df[columna].value_counts().reset_index()
                             counts.columns = [columna, 'count']
 
                             # Calcular el porcentaje
@@ -1171,7 +1253,6 @@ if main_tab == "Descriptive Analysis":
 
                             # Ordenar los conteos de acuerdo al orden de la escala determinado previamente
                             counts = counts.set_index(counts.columns[0])
-                            # Asegurar que los índices a ordenar estén presentes en la escala y viceversa
                             counts = counts.reindex(orden_escala).fillna(0).reset_index()
                             counts['formatted'] = counts.apply(lambda row: f"{int(row['count'])} ({row['percentage']}%)", axis=1)
                             counts = counts[['formatted']].rename(columns={'formatted': columna})
@@ -1183,35 +1264,6 @@ if main_tab == "Descriptive Analysis":
                         data_table = data_tables.to_dict('records')
 
                         st.dataframe(pd.DataFrame(data_table))
-                else:
-                    orden_escala = sorted(df[columnas].stack().unique().tolist())
-
-                    conteos_columnas = []
-
-                    # Incluir la columna de escala como primer elemento de conteos_columnas
-                    conteos_columnas.append(pd.DataFrame({'Scale': orden_escala}))
-
-                    for columna in columnas:
-                        counts = df[columna].value_counts().reset_index()
-                        counts.columns = [columna, 'count']
-
-                        # Calcular el porcentaje
-                        total = counts['count'].sum()
-                        counts['percentage'] = (counts['count'] / total * 100).round(2)
-
-                        # Ordenar los conteos de acuerdo al orden de la escala determinado previamente
-                        counts = counts.set_index(counts.columns[0])
-                        counts = counts.reindex(orden_escala).fillna(0).reset_index()
-                        counts['formatted'] = counts.apply(lambda row: f"{int(row['count'])} ({row['percentage']}%)", axis=1)
-                        counts = counts[['formatted']].rename(columns={'formatted': columna})
-
-                        conteos_columnas.append(counts)
-                    
-                    # Concatenar los conteos en columnas manteniendo el orden
-                    data_tables = pd.concat(conteos_columnas, axis=1)
-                    data_table = data_tables.to_dict('records')
-                    
-                    st.dataframe(pd.DataFrame(data_table))
 
         # Llama a la función para mostrar la gráfica y los botones de reportes si ya se ha generado una gráfica
         show_graph_and_table()
