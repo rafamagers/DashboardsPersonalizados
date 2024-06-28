@@ -44,7 +44,7 @@ if 'description' not in st.session_state:
 @st.cache_data
 def load_data(uploaded_file):
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+        df = pd.read_csv(uploaded_file, keep_default_na=False, na_values=[""])
         return df
     return None
 # Función para traducir una columna a inglés
@@ -309,11 +309,10 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
                 word_count = filtered_df[col].notna().sum()
                 frequency = (word_count / total_rows) * 100
                 frequencies.append(frequency)
-            print()
             fig.add_trace(
                 go.Bar(
                     x=frequencies,
-                    y=[df[elemento].dropna().unique()[0] for elemento in column_names],
+                    y=[elemento.split("-")[-1] for elemento in column_names],
                     orientation='h',
                     text=[f'{freq:.1f}%' for freq in frequencies],
                     textposition='auto'
@@ -338,7 +337,7 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
         
         fig = go.Figure(go.Bar(
             x=frequencies,
-            y=[df[elemento].dropna().unique()[0] for elemento in column_names],
+            y=[elemento.split("-")[-1] for elemento in column_names],
             orientation='h',
             text=[f'{freq:.1f}%' for freq in frequencies],
             textposition='auto'
@@ -427,7 +426,6 @@ def generate_multibar_chart(df, columnas, filtro, likert):
             top_labels = [ "Never", "Rarely", "Sometimes","Very Often","Always"] 
         else:
             numerosmode = False
-            print("normal")
             top_labels = [str(numero) for numero in valoresdecolumna]                       
     elif np.array_equal(np.sort(valores_unicos), np.sort(np.array(["Muy negativo", "Negativo", "Neutral", "Positivo", "Muy positivo"]))):
         top_labels = ["Muy negativo", "Negativo", "Neutral", "Positivo", "Muy positivo"]
@@ -593,7 +591,6 @@ def update_heatmap(selected_columns, filter_var):
         
         fig.update_yaxes(tickvals=list(range(len(heatmap_data.index))),
                          ticktext=y_ticktext, row=i+1, col=1)
-        print(y_ticktext)
         for ii, row in heatmap_data.iterrows():
             for j, val in row.items():
                 fig.add_annotation(
@@ -920,8 +917,6 @@ def generate_html_report(report_data):
     figures = ''
     for i, fig_data in enumerate(report_data):
         fig = go.Figure(fig_data['figure'])
-        print(st.session_state['fig_height'])
-        print(st.session_state['fig_width'])
         fig.update_layout(width=1800, height=fig_data['height'])
         img_bytes = fig.to_image(format="png")
         img_base64 = base64.b64encode(img_bytes).decode("utf-8")
@@ -1445,14 +1440,14 @@ elif main_tab == "Data Codification":
             csv = st.session_state.df.to_csv(index=False)
             # Agrega un botón de descarga en Streamlit
             st.download_button(
-                label="Descargar CSV",
+                label="Download CSV",
                 data=csv,
                 file_name='updated_dataframe.csv',
                 mime='text/csv',
             )
 
             # Mensaje de éxito opcional
-            st.success('El DataFrame está listo para ser descargado.')
+            st.success('The Dataframe is ready for download.')
 elif main_tab == "Generate Report":
     st.subheader("Download Report")
     if st.button("Generate Report"):
