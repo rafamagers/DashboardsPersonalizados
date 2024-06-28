@@ -309,11 +309,11 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
                 word_count = filtered_df[col].notna().sum()
                 frequency = (word_count / total_rows) * 100
                 frequencies.append(frequency)
-            
+            print()
             fig.add_trace(
                 go.Bar(
                     x=frequencies,
-                    y=[elemento.split("-")[-1] for elemento in column_names],
+                    y=[df[elemento].dropna().unique()[0] for elemento in column_names],
                     orientation='h',
                     text=[f'{freq:.1f}%' for freq in frequencies],
                     textposition='auto'
@@ -338,7 +338,7 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
         
         fig = go.Figure(go.Bar(
             x=frequencies,
-            y=[elemento.split("-")[-1] for elemento in column_names],
+            y=[df[elemento].dropna().unique()[0] for elemento in column_names],
             orientation='h',
             text=[f'{freq:.1f}%' for freq in frequencies],
             textposition='auto'
@@ -989,7 +989,7 @@ if main_tab == "Descriptive Analysis":
     if nested_tab == "Various Graphics":
         st.subheader("Various Graphics")
         st.text("Use this type of graph to visualise the behaviour between any of your categorical variables.")
-        if st.button("Show instructions"):
+        if st.checkbox("Show instructions"):
             st.text("Instructions:")
             st.text("1: Select what chart you want")
             st.text("2: Select your first categorical variable (If you selected a word cloud chart, make sure this variable corresponds to an open-ended question).")
@@ -1119,7 +1119,7 @@ if main_tab == "Descriptive Analysis":
                         output_table = calculate_percentages(contingency_table, x_axis, filtro)
                         data_table = output_table.reset_index().to_dict('records')
                     else:
-                        raise st.error("Por favor seleccione un filtro para generar la tabla de contingencia.")
+                        st.error("Por favor seleccione un filtro para generar la tabla de contingencia.")
         
                 elif tipo_grafico == 'Word Cloud':
                     fig = generate_wordcloud_with_filter(df, x_axis, filtro)
@@ -1137,7 +1137,7 @@ if main_tab == "Descriptive Analysis":
     elif nested_tab == "Matrix Charts":
         st.subheader("Matrix Charts")
         st.text("Use this type of graph to visualise the behaviour between a set of categorical variables that are related to a similar question (these sets are automatically recognised).")
-        if st.button("Show instructions"):
+        if st.checkbox("Show instructions"):
             st.text("Instructions:")
             st.text("1: Select what chart you want (Tick Bar chart: please note that this type of chart is for multiple choice questions only)")
             st.text("2: Select your set of categorical variables ")
@@ -1271,7 +1271,7 @@ if main_tab == "Descriptive Analysis":
     elif nested_tab == "Custom Heatmaps":
         st.subheader("Custom Heatmap")
         st.text("Use this type of graph to visualise behaviour among a set of categorical variables that you can choose manually, the set of questions must have the same scale.")
-        if st.button("Show instructions"):
+        if st.checkbox("Show instructions"):
             st.text("Instructions:")
             st.text("1: Select your first categorical variable (Note that the other variables you can select will depend on the scale of this variable.) ")
             st.text("2: You can add all variables that have the same scale, by selecting the variable in the second dropdown and pressing the add button.")
@@ -1363,7 +1363,7 @@ if main_tab == "Descriptive Analysis":
     elif nested_tab == "Numeric Charts":
         st.subheader("Numeric charts")
         st.text("Use this type of graph to visualise the behaviour between a categorical variable and a numerical variable.")
-        if st.button("Show instructions"):
+        if st.checkbox("Show instructions"):
             st.text("Instructions:")
             st.text("1: Select your first categorical variable")
             st.text("2: Select your numerical variable")
