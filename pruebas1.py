@@ -6,8 +6,11 @@ from collections import defaultdict
 import plotly.express as px
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+import networkx as nx
+from plotly import graph_objs as go
 import io
 import numpy as np
+import os
 import base64
 from datetime import datetime
 from io import BytesIO
@@ -15,12 +18,23 @@ from googletrans import Translator
 import plotly.figure_factory as ff
 import nltk
 import re
+from scipy.stats import chi2
 import string
 from nltk.corpus import stopwords
 from nltk import ngrams
 from collections import Counter
+from sklearn.decomposition import FactorAnalysis
+from factor_analyzer import FactorAnalyzer, calculate_kmo, calculate_bartlett_sphericity
+from factor_analyzer.rotator import Rotator
+import pingouin as pg
+from semopy import Model, Optimizer, semplot
+from semopy.inspector import inspect
+import semopy
+import graphviz
 # Inicializar el traductor
 translator = Translator()
+graphviz_path = os.path.join(os.path.dirname(graphviz.__file__), 'bin')
+os.environ["PATH"] += os.pathsep + graphviz_path
 # Estado inicial
 if 'current_tab' not in st.session_state:
     st.session_state.current_tab = "Descriptive Analysis"
@@ -41,6 +55,16 @@ if 'fig_height' not in st.session_state:
 if 'description' not in st.session_state:
     st.session_state['description'] = ""
 # Función para cargar y procesar el archivo CSV
+# Variables globales para almacenar el número de factores y los ítems seleccionados
+# Variables globales para almacenar el número de factores y los ítems seleccionados
+# Variables globales para almacenar el número de factores y los ítems seleccionados
+if 'num_factors' not in st.session_state:
+    st.session_state.num_factors = 2
+if 'factor_items' not in st.session_state:
+    st.session_state.factor_items = {f'Factor {i+1}': [] for i in range(st.session_state.num_factors)}
+
+
+
 @st.cache_data
 def load_data(uploaded_file):
     if uploaded_file is not None:
@@ -57,7 +81,18 @@ def translate_column(df, column):
         df.rename(columns={column: new_column_name}, inplace=True)
         return f"Translated column '{column}' to English."
     return "No column selected or dataframe is empty."
+def update_factor_items():
+    for factor in st.session_state.factor_items.keys():
+        st.session_state.factor_items[factor] = st.session_state.get(f'{factor}_selected_items', [])
 
+def add_factor():
+    st.session_state.num_factors += 1
+    st.session_state.factor_items[f'Factor {st.session_state.num_factors}'] = []
+
+def remove_factor():
+    if st.session_state.num_factors > 2:
+        del st.session_state.factor_items[f'Factor {st.session_state.num_factors}']
+        st.session_state.num_factors -= 1
 # Función para traducir todo el dataframe a inglés
 def translate_dataframe(df):
     if df is not None:
@@ -795,6 +830,46 @@ def generate_displot_chart(df, selected_x, selected_y, filter_var):
         )
     
     return fig
+def polychoric_correlation(df):
+    # Pingouin tiene una función para calcular la matriz de correlación policórica
+    corr =  pg.pcorr(df)
+    print(corr)
+    #corr = corr + corr.T - np.diag(np.diag(corr))
+    return corr
+
+# Función para determinar el número de factores a retener
+def determine_number_of_factors(eigenvalues, method):
+    if method == "Kaiser":
+        return np.sum(eigenvalues > 1)
+    elif method == "Choose manually with Scree plot":
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=list(range(1, len(eigenvalues) + 1)),
+            y=eigenvalues,
+            mode='lines+markers',
+            marker=dict(size=8),
+            name='Eigenvalues'
+        ))
+
+        fig.add_shape(type="line",
+                      x0=1, x1=len(eigenvalues),
+                      y0=1, y1=1,
+                      line=dict(color="Red", dash="dash"))
+
+        fig.update_layout(
+            title='Scree Plot',
+            xaxis=dict(title='Factor'),
+            yaxis=dict(title='Eigenvalue'),
+            showlegend=False
+        )
+
+        st.plotly_chart(fig)
+
+        return st.number_input("Select number of factors based on scree plot", min_value=1, max_value=len(eigenvalues), value=1)
+
+    elif method == "Parallel Analysis":
+        # Implementación del método de análisis paralelo
+        pass
 def update_numerico(selected_grafico, selected_x, selected_y, filter_var, show_points):
     if not selected_grafico or not selected_x or not selected_y:
         return go.Figure()
@@ -938,7 +1013,34 @@ def generate_html_report(report_data):
 
 
 
+def calculate_kmo2(corr_matrix):
+    corr_matrix = np.asarray(corr_matrix)
+    inv_corr_matrix = np.linalg.inv(corr_matrix)
+    
+    # Sum of squares of the correlations
+    corr_sq = np.square(corr_matrix)
+    np.fill_diagonal(corr_sq, 0)
+    corr_sq_sum = np.sum(corr_sq)
+    
+    # Partial correlations
+    partial_corr_matrix = -inv_corr_matrix / np.sqrt(np.outer(np.diag(inv_corr_matrix), np.diag(inv_corr_matrix)))
+    partial_corr_sq = np.square(partial_corr_matrix)
+    np.fill_diagonal(partial_corr_sq, 0)
+    partial_corr_sq_sum = np.sum(partial_corr_sq)
+    
+    # KMO calculation
+    kmo_numerator = corr_sq_sum
+    kmo_denominator = corr_sq_sum + partial_corr_sq_sum
+    kmo_value = kmo_numerator / kmo_denominator
+    
+    return kmo_value
 
+# Test de Bartlett
+def calculate_bartlett_corr_matrix(corr_matrix, n):
+    chi_square_value = -(n - 1 - (2 * corr_matrix.shape[0] + 5) / 6) * np.log(np.linalg.det(corr_matrix))
+    df = (corr_matrix.shape[0] * (corr_matrix.shape[0] - 1)) / 2
+    p_value = 1 - chi2.cdf(chi_square_value, df)
+    return chi_square_value, p_value
 
 
 
@@ -948,7 +1050,7 @@ st.set_page_config(layout="wide")
 st.markdown("<h1 style='text-align: left;'>Dashboard Creator</h1>", unsafe_allow_html=True)
 
 # Configuración de los tabs principales
-main_tab = st.sidebar.radio("Main Tabs", ["Descriptive Analysis", "Exploratory Analysis", "Data Codification", "Generate Report"], index=["Descriptive Analysis", "Exploratory Analysis", "Data Codification", "Generate Report"].index(st.session_state.current_tab))
+main_tab = st.sidebar.radio("Main Tabs", ["Descriptive Analysis", "Factorial Analysis", "Data Codification", "Generate Report"], index=["Descriptive Analysis", "Factorial Analysis", "Data Codification", "Generate Report"].index(st.session_state.current_tab))
 
 # Subtabs para 'Descriptive Analysis'
 nested_tab = None
@@ -1386,15 +1488,253 @@ if main_tab == "Descriptive Analysis":
                 st.session_state['fig_height'] = fig.layout.height
         show_graph_and_table()
 # Layout para 'Exploratory Analysis'
-elif main_tab == "Exploratory Analysis":
-    st.header("Exploratory Analysis")
-    st.subheader("Select variables")
-    st.write("Select variables options will be shown here.")
-    st.button("Select all")
-    st.button("Deselect all")
-    st.subheader("Generate automatic report")
-    st.button("Abrir Informe")
+elif main_tab == "Factorial Analysis":
+    df = st.session_state.df
+    columns =st.session_state.df.columns
+    st.header("Factorial Analysis")
+    nested_tab_options = ["Exploratory factor analysis", "Confirmatory factor analysis"]
+    nested_tab = st.sidebar.radio("Subsections", nested_tab_options, index=nested_tab_options.index(st.session_state.nested_tab) if st.session_state.nested_tab in nested_tab_options else 0)
+    
+    if nested_tab == "Exploratory factor analysis":
+        st.subheader("Exploratory Factor Analysis")
+        
+        # Asegurarse de que 'columns' sea una lista
+        columns_list = list(columns)
+        
+        # Selección de ítems
+        selected_items = st.multiselect("Select items for EFA", columns_list, default=columns_list)
+        
+        if selected_items:
+            df_selected = df[selected_items]
+            
+            # Tipo de rotación
 
+            correlation_matrix_type = st.selectbox("Select correlation matrix type", ["Pearson", "Polychoric"])
+
+            # Calcular la matriz de correlación
+            if correlation_matrix_type == "Pearson":
+                correlation_matrix = df_selected.corr()
+            else:
+                correlation_matrix = polychoric_correlation(df_selected)
+
+            # Mostrar matriz de correlación al pulsar un botón
+            if st.checkbox("Show Correlation Matrix"):
+                st.write("Correlation Matrix:")
+                st.dataframe(correlation_matrix)
+
+            # Pruebas de Bartlett y KMO
+            if st.button("Run Bartlett's test and KMO"):
+                n = len(df)
+                chi_square_value, p_value = calculate_bartlett_corr_matrix(correlation_matrix, n)
+                kmo = calculate_kmo2(correlation_matrix)
+                st.write(f"Bartlett's test: Chi-square value = {chi_square_value}, p-value = {p_value}")
+                st.write(f"Kaiser-Meyer-Olkin (KMO) test: KMO model = {kmo}")
+            # Tipo de matriz de correlación
+
+            # Método de extracción
+            extraction_method = st.selectbox("Select extraction method", ["Principal Axis Factoring", "Maximum Likelihood", "Minres"])
+            rotation = st.selectbox("Select rotation method", ["Varimax (Orthogonal)", "Promax (Oblique)", "Oblimin (Oblique)","Oblimax (Orthogonal)","Quartimin (Oblique)","Quartimax (Orthogonal)","Equamax (Orthogonal)", "None"])
+
+            if extraction_method == "Principal Axis Factoring":
+                method = 'principal'
+            elif extraction_method == "Maximum Likelihood":
+                method = 'ml'
+            elif extraction_method == "Minres":
+                method = 'minres'
+
+            fa = FactorAnalyzer(rotation=None, method=method)
+            fa.fit(df_selected)
+            eigenvalues, _ = fa.get_eigenvalues()
+
+
+            # Criterios para retención de factores
+            retention_method = st.selectbox("Select method to determine number of factors", ["Kaiser", "Choose manually with Scree plot", "Parallel Analysis (NOT IMPLEMENTED)"])
+            n_factors = determine_number_of_factors(eigenvalues, retention_method)
+                        # Obtener eigenvalues y calcular varianza explicada
+
+            if st.button("Run") and n_factors:
+                if rotation != "None":
+                    rotation = rotation.split(" ")[0].lower()
+                else:
+                    rotation = None
+                if method == "principal":
+                    if correlation_matrix_type != "Pearson":
+                        st.write("Note: In the Principal Axis Factoring you only can use the default correlation matrx (Pearson)")
+                    corrm = False
+                else:
+                    corrm = True
+                fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, is_corr_matrix=corrm)
+                if corrm:
+                    fa.fit(correlation_matrix)
+                else:
+                    fa.fit(df_selected)
+                ev, v = fa.get_eigenvalues()
+                total_variance_explained = np.cumsum(ev) / np.sum(ev)
+
+                # Crear un DataFrame para mostrar los resultados
+                explained_variance_df = pd.DataFrame({
+                    'Factor': [f'Factor {i+1}' for i in range(len(ev))],
+                    'Eigenvalue': ev,
+                    'Proportion of variance explained': ev / np.sum(ev),
+                    'Explained cumulative variance': total_variance_explained
+                })
+
+                # Visualización de la tabla en Streamlit
+                st.write("Total Variance Explained:")
+                st.dataframe(explained_variance_df,hide_index=True)
+
+
+                communalities = fa.get_communalities()
+                print(communalities)
+                # Mostrar las comunalidades de cada ítem en una tabla separada
+                st.write("Comunalities")
+                items = df_selected.columns.tolist()
+                items_communalities = pd.DataFrame({
+                    'Item': items,
+                    'Communality (Extraction)': communalities
+                })
+                st.dataframe(items_communalities, hide_index=True)
+                # Mostrar resultados de cargas factoriales
+                st.write("Factor Loadings:")
+                loadings = pd.DataFrame(fa.loadings_, index=selected_items)
+                loadings.columns = [f'Factor {i+1}' for i in range(loadings.shape[1])]
+                st.dataframe(loadings)
+
+                                # Graficar cargas factoriales con Plotly
+                fig = go.Figure(data=go.Heatmap(
+                    z=abs(loadings.values),
+                    x=loadings.columns,
+                    y=loadings.index,
+                    colorscale='Blues',
+                    showscale=True,
+                    zmin=0,
+                    zmax=1
+                ))
+
+                fig.update_layout(
+                    title='Factor Loadings Heatmap',
+                    xaxis_nticks=36
+                )
+
+                st.plotly_chart(fig)
+                G = nx.DiGraph()
+
+                # Añadir nodos de factores y ítems
+                for i, factor in enumerate(loadings.columns):
+                    G.add_node(factor, color='green')
+                for item in loadings.index:
+                    G.add_node(item, color='orange')
+
+                # Añadir aristas con pesos basados en las cargas factoriales
+                for item in loadings.index:
+                    for i, factor in enumerate(loadings.columns):
+                        weight = loadings.loc[item, factor]
+                        if abs(weight) > 0.3:  # Puedes ajustar este umbral según sea necesario
+                            G.add_edge(factor, item, weight=abs(weight))
+
+                # Posiciones fijas: Factores a la izquierda y ítems a la derecha
+                pos = {}
+                for i, factor in enumerate(loadings.columns):
+                    pos[factor] = (0, i)
+                for i, item in enumerate(loadings.index):
+                    pos[item] = (1, i)
+
+                edges = G.edges(data=True)
+                weights = [edge[2]['weight'] for edge in edges]
+
+                colors = [G.nodes[node]['color'] for node in G.nodes]
+
+                fig, ax = plt.subplots(figsize=(12, 8))
+                nx.draw(G, pos, with_labels=True, node_color=colors, edge_color=weights, width=2.0, edge_cmap=plt.cm.Blues, node_size=3000, font_size=10, font_weight='bold', ax=ax)
+                sm = plt.cm.ScalarMappable(cmap=plt.cm.Blues, norm=plt.Normalize(vmin=min(weights), vmax=max(weights)))
+                sm.set_array(weights)
+                fig.colorbar(sm, ax=ax, label='Factor Loading Strength')
+
+                # Mostrar el gráfico en Streamlit
+                st.pyplot(fig)
+    elif nested_tab == "Confirmatory factor analysis":
+        st.subheader("Confirmatory Factor Analysis")
+        st.write("Define your model:")
+
+        # Selección de ítems
+        columns_list = list(columns)
+        selected_items = st.multiselect("Select items for CFA", columns_list, default=columns_list)
+
+        if selected_items:
+            df_selected = df[selected_items]
+
+        # Mostrar selectores de ítems para cada factor y almacenar ítems seleccionados temporalmente
+        temp_factor_items = {}
+        used_items = set()
+        for factor in st.session_state.factor_items.keys():
+            available_items = [item for item in selected_items if item not in used_items]
+            current_items = [item for item in st.session_state.factor_items[factor] if item in available_items]
+
+            temp_factor_items[factor] = st.multiselect(f"Select items for {factor}", available_items, current_items, key=f'{factor}_selected_items')
+            used_items.update(temp_factor_items[factor])
+
+        # Actualizar ítems seleccionados para cada factor en session_state
+        for factor, items in temp_factor_items.items():
+            st.session_state.factor_items[factor] = items
+
+        # Botones para agregar o quitar factores
+        st.button("Add Factor", on_click=add_factor)
+        st.button("Remove Factor", on_click=remove_factor)
+
+        # Construir la definición del modelo
+        model_definition = ""
+        for factor, items in st.session_state.factor_items.items():
+            if items:
+                model_definition += f"F{factor[-1]} =~ {' + '.join(items)}\n"
+
+        st.text_area("Model Definition (lavaan syntax)", model_definition, height=150)
+
+        if st.button("Run CFA"):
+            try:
+                # Verificar si la definición del modelo es válida
+                if not model_definition.strip():
+                    st.error("The model definition cannot be empty.")
+                    raise ValueError("Empty model definition")
+    
+                model = Model(model_definition)
+                model.fit(df_selected)
+                g = semopy.semplot(model,filename="jeje.png", std_ests=True)
+                # Comprobaciones adicionales del modelo
+                if not model.parameters:
+                    st.error("No parameters found in the model.")
+                    raise ValueError("No parameters found in the model")
+                
+                # Extraer las cargas factoriales para visualización
+                estimates = model.inspect(std_est=True)
+                st.write(estimates)
+                loadings = estimates[estimates["op"]=="~"]
+                print(loadings)  # Imprimir las cargas para depuración
+                if loadings is not None:
+                    loadings_df = pd.DataFrame(loadings, index=df_selected.columns, columns=[f'Factor {i+1}' for i in range(loadings.shape[1])])
+
+                    st.write("Factor Loadings:")
+                    st.dataframe(loadings_df)
+
+                    fig = go.Figure(data=go.Heatmap(
+                        z=abs(loadings_df.values),
+                        x=loadings_df.columns,
+                        y=loadings_df.index,
+                        colorscale='Blues',
+                        showscale=True,
+                        zmin=0,
+                        zmax=1
+                    ))
+
+                    fig.update_layout(
+                        title='CFA Loadings Heatmap',
+                        xaxis_nticks=36
+                    )
+
+                    st.plotly_chart(fig)
+                else:
+                    st.error("Error fitting model: No loadings matrix found.")
+            except Exception as e:
+                st.error(f"Error fitting model: {e}")
 # Layout para 'Data Codification'
 elif main_tab == "Data Codification":
     if 'show_manual_change' not in st.session_state:
@@ -1448,6 +1788,8 @@ elif main_tab == "Data Codification":
 
             # Mensaje de éxito opcional
             st.success('The Dataframe is ready for download.')
+    else:
+        st.subheader("Please first upload your CSV")
 elif main_tab == "Generate Report":
     st.subheader("Download Report")
     if st.button("Generate Report"):
