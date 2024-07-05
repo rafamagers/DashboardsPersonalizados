@@ -31,8 +31,6 @@ from semopy.inspector import inspect
 import semopy
 # Inicializar el traductor
 translator = Translator()
-graphviz_path = os.path.join(os.path.dirname(graphviz.__file__), 'bin')
-os.environ["PATH"] += os.pathsep + graphviz_path
 # Estado inicial
 if 'current_tab' not in st.session_state:
     st.session_state.current_tab = "Descriptive Analysis"
