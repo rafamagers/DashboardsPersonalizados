@@ -9,3 +9,6 @@ nltk==3.8.1
 kaleido
 networkx
 spicy
+factor_analyzer
+pingouin
+semopy
