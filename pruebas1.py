@@ -109,7 +109,6 @@ def agrupar_codigos(codigos):
     arreglo_final = [{'label': clave, 'value': '|'.join(codigos)}
                      for clave, codigos in grupos.items() if len(codigos) > 1]
     return arreglo_final
-nltk.download('stopwords')
 # Función para generar el wordcloud
 def process_text(text):
     # Convertir texto a minúsculas y eliminar signos de puntuación
