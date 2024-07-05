@@ -12,3 +12,4 @@ spicy
 factor_analyzer
 pingouin
 semopy
+graphviz
