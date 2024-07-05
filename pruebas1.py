@@ -23,14 +23,12 @@ import string
 from nltk.corpus import stopwords
 from nltk import ngrams
 from collections import Counter
-from sklearn.decomposition import FactorAnalysis
 from factor_analyzer import FactorAnalyzer, calculate_kmo, calculate_bartlett_sphericity
 from factor_analyzer.rotator import Rotator
 import pingouin as pg
 from semopy import Model, Optimizer, semplot
 from semopy.inspector import inspect
 import semopy
-import graphviz
 # Inicializar el traductor
 translator = Translator()
 graphviz_path = os.path.join(os.path.dirname(graphviz.__file__), 'bin')
