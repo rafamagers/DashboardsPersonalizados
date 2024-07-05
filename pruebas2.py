@@ -1,48 +1,38 @@
-import streamlit as st
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import pandas as pd
+from factor_analyzer import calculate_kmo, calculate_bartlett_sphericity
+from scipy.stats import bartlett
 
-# Ejemplo de datos y colores
-y_data = [1, 2, 3, 4]
-labelito = "Ejemplo"
-color = ['#FF5733', '#33FF57', '#3357FF', '#F3FF33']
+def realizar_tests(ruta_archivo):
+    # Leer el archivo CSV
+    datos = pd.read_csv(ruta_archivo)
+    
+    # Seleccionar las columnas a partir de la cuarta columna
+    datos_seleccionados = datos.iloc[:, 3:]
+    
+    # Test de Bartlett
+    chi_square_value, p_value = calculate_bartlett_sphericity(datos_seleccionados)
+    
+    # Test KMO
+    kmo_all, kmo_model = calculate_kmo(datos_seleccionados)
+    
+    # Resultados
+    resultados = {
+        'bartlett': {
+            'chi_square_value': chi_square_value,
+            'p_value': p_value
+        },
+        'kmo': kmo_model
+    }
+    
+    return resultados
 
-# Crear subplots
-fig = make_subplots(rows=1, cols=1)
+# Ejemplo de uso
+ruta_csv = "Z:\Downloads\Ejercicio_Escala-de-Cordialidad_Base-de-Datos.csv"
+resultados = realizar_tests(ruta_csv)
 
-# Añadir algunos datos de ejemplo
-fig.add_trace(go.Bar(x=[1, 2, 3, 4], y=y_data), row=1, col=1)
-
-annotations = []
-
-# Ciclo para generar las anotaciones
-for k in range(len(y_data)):
-    # Definir el cuadrado de color usando el símbolo unicode
-    color_square = f"<span style='color:{color[k]}'>■</span>"
-    # Crear el texto con el cuadrado y el texto de la etiqueta
-    texto_con_color = f"{color_square} {labelito}"
-    # Añadir la anotación
-    annotations.append(dict(
-        xref='x1',
-        yref='y1',
-        x=10,  # Ajusta esto según el rango de tu subplot
-        y=len(y_data) - k,  # Ajuste de y para cada anotación
-        text=texto_con_color,
-        font=dict(family='Arial', size=14, color='rgb(67, 67, 67)'),
-        showarrow=False,
-        align='left'
-    ))
-
-# Actualizar layout de la figura con las anotaciones
-fig.update_layout(
-    barmode='stack',
-    paper_bgcolor='rgb(248, 248, 255)',
-    plot_bgcolor='rgb(248, 248, 255)',
-    height=600,  # Ajusta la altura según sea necesario
-    annotations=annotations,
-    showlegend=False,
-    margin=dict(l=120, r=10, t=140, b=80)
-)
-
-# Mostrar la figura en Streamlit
-st.plotly_chart(fig)
+# Imprimir los resultados
+print("Test de Bartlett:")
+print("Chi-Square Value:", resultados['bartlett']['chi_square_value'])
+print("P-Value:", resultados['bartlett']['p_value'])
+print("\nTest KMO:")
+print("KMO Model:", resultados['kmo'])
