@@ -1661,16 +1661,28 @@ elif main_tab == "Factorial Analysis":
         # Mostrar selectores de ítems para cada factor y almacenar ítems seleccionados temporalmente
         temp_factor_items = {}
         used_items = set()
+
+        initial_factor_items = st.session_state.factor_items.copy()
+        
         for factor in st.session_state.factor_items.keys():
             available_items = [item for item in selected_items if item not in used_items]
             current_items = [item for item in st.session_state.factor_items[factor] if item in available_items]
-
-            temp_factor_items[factor] = st.multiselect(f"Select items for {factor}", available_items, current_items, key=f'{factor}_selected_items')
+        
+            temp_factor_items[factor] = st.multiselect(
+                f"Select items for {factor}",
+                available_items,
+                current_items,
+                key=f'{factor}_selected_items'
+            )
             used_items.update(temp_factor_items[factor])
-
+        
         # Actualizar ítems seleccionados para cada factor en session_state
         for factor, items in temp_factor_items.items():
             st.session_state.factor_items[factor] = items
+        
+        # Verificar si hubo cambios en los ítems seleccionados
+        if initial_factor_items != st.session_state.factor_items:
+            st.experimental_rerun()  # Forzar la recarga de la página
 
         # Botones para agregar o quitar factores
         st.button("Add Factor", on_click=add_factor)
@@ -1682,7 +1694,7 @@ elif main_tab == "Factorial Analysis":
             if items:
                 model_definition += f"F{factor[-1]} =~ {' + '.join(items)}\n"
 
-        st.text_area("Model Definition (lavaan syntax)", model_definition, height=150)
+        st.text_area("Model Definition (lavaan syntax)", model_definition, height=150, disabled=True)
 
         if st.button("Run CFA"):
             try:
@@ -1693,7 +1705,7 @@ elif main_tab == "Factorial Analysis":
     
                 model = Model(model_definition)
                 model.fit(df_selected)
-                g = semopy.semplot(model,filename="jeje.png", std_ests=True)
+                #g = semopy.semplot(model,filename="jeje.png", std_ests=True)
                 # Comprobaciones adicionales del modelo
                 if not model.parameters:
                     st.error("No parameters found in the model.")
@@ -1701,33 +1713,53 @@ elif main_tab == "Factorial Analysis":
                 
                 # Extraer las cargas factoriales para visualización
                 estimates = model.inspect(std_est=True)
-                st.write(estimates)
+                st.write("Model estimation")
+                st.dataframe(estimates, hide_index=True)
+                st.write("Statistics")
+                stats = semopy.calc_stats(model).round(3)
+                st.write(stats)
+                cov_estimate,_ = model.calc_sigma() 
+                cov = model.mx_cov
+                residual = cov -cov_estimate
+                std_residual = residual / np.std(residual)
+                std_res= pd.DataFrame(
+                std_residual,
+                columns=model.names_lambda[0], index=model.names_lambda[0],
+                )
+                st.write("Residue of covariance Matrix")
+                st.write(std_res)
                 loadings = estimates[estimates["op"]=="~"]
-                print(loadings)  # Imprimir las cargas para depuración
-                if loadings is not None:
-                    loadings_df = pd.DataFrame(loadings, index=df_selected.columns, columns=[f'Factor {i+1}' for i in range(loadings.shape[1])])
+                constructs= loadings["rval"].unique().tolist()
+                # AVE computation 
+                st.write("Average Variance Extracted")
+                lods = []
+                for cons in constructs:
+                    squared_loadings = loadings[loadings["rval"] == cons]["Est. Std"] ** 2
+                    ave = squared_loadings.sum() / squared_loadings.size
+                    lods.append({'Factor': cons, 'AVE': ave})
 
-                    st.write("Factor Loadings:")
-                    st.dataframe(loadings_df)
+                # Crear DataFrame
+                df_ave = pd.DataFrame(lods)
 
-                    fig = go.Figure(data=go.Heatmap(
-                        z=abs(loadings_df.values),
-                        x=loadings_df.columns,
-                        y=loadings_df.index,
-                        colorscale='Blues',
-                        showscale=True,
-                        zmin=0,
-                        zmax=1
-                    ))
-
-                    fig.update_layout(
-                        title='CFA Loadings Heatmap',
-                        xaxis_nticks=36
-                    )
-
-                    st.plotly_chart(fig)
-                else:
-                    st.error("Error fitting model: No loadings matrix found.")
+                # Mostrar DataFrame en Streamlit
+                st.dataframe(df_ave, hide_index=True)
+                # Imprimir las cargas para depuración
+                #print("CR")
+                #estimates = model.inspect(std_est=True)
+                #loadings = estimates[estimates["op"] == "~"] 
+                #lambdas= pd.DataFrame( model.mx_lambda,
+                #                      columns = model.names[1],
+                #                      index=model.names[0]
+                #)
+                #constructs = loadings["rval"].unique().tolist()
+                #
+                #for cons in constructs:
+                #    loads =loadings[loadings["rval"] == cons]["Est. Std"] 
+                #    idx= np.array(lambdas[cons].to_numpy().nonzero()[0]) 
+                #    vars= np.array(model.names[0])[idx].tolist() 
+                #    errors= estimates.query(f' op="" & lval == rval & rval == = & Ival rval & rval == {vars} ')["Est. Std"]
+                #    cr = loads.sum()**2/(loads.sum()**2+ errors.sum() ** 2) 
+                #    print(cons, ":", cr)
             except Exception as e:
                 st.error(f"Error fitting model: {e}")
 # Layout para 'Data Codification'
