@@ -29,6 +29,11 @@ import pingouin as pg
 from semopy import Model, Optimizer, semplot
 from semopy.inspector import inspect
 import semopy
+os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta si es necesario
+
+#from transformers import pipeline
+#qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
+
 # Inicializar el traductor
 translator = Translator()
 # Estado inicial
@@ -62,11 +67,25 @@ if 'factor_items' not in st.session_state:
 
 
 @st.cache_data
-def load_data(uploaded_file):
+def load_data(uploaded_file,deli):
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file, keep_default_na=False, na_values=[""])
+        df = pd.read_csv(uploaded_file, keep_default_na=False, na_values=[""], delimiter=deli)
+        question = "¿Cuántas filas y columnas tiene este DataFrame?"
+        #answer = ask_question_about_df(df, question)
+        print("Respuesta:")
+        #print(answer)
         return df
     return None
+def ask_question_about_df(df, question):
+    # Convertir el DataFrame a texto
+    df_text = df.to_string()
+
+    # Preguntar sobre el DataFrame
+    result = qa_pipeline({
+        'question': question,
+        'context': df_text
+    })
+    return result
 # Función para traducir una columna a inglés
 def translate_column(df, column):
     if df is not None and column in df.columns:
@@ -1056,13 +1075,16 @@ if main_tab == "Descriptive Analysis":
 # Layout para 'Descriptive Analysis'
 if main_tab == "Descriptive Analysis":
     st.header("Descriptive Analysis")
-    
     # Carga de archivo
     uploaded_file = st.file_uploader("Drag and drop or Choose CSV File", type="csv")
-    
+    deli = st.selectbox("Select the delimiter of your CSV:", ['Comma', 'Semicolon'])
+    if deli =="Comma":
+        delim=","
+    else:
+        delim=";"
     if uploaded_file is not None:
         st.session_state.uploaded_file = uploaded_file
-        st.session_state.df = load_data(uploaded_file)
+        st.session_state.df = load_data(uploaded_file, delim)
     
     df = st.session_state.df
     
@@ -1527,13 +1549,15 @@ elif main_tab == "Factorial Analysis":
             # Tipo de matriz de correlación
 
             # Método de extracción
-            extraction_method = st.selectbox("Select extraction method", ["Principal Axis Factoring", "Maximum Likelihood", "Minres"])
+            extraction_method = st.selectbox("Select extraction method", ["Principal Axis Factoring", "Maximum Likelihood","Unweighted Least Squares (ULS)", "Minres"])
             rotation = st.selectbox("Select rotation method", ["Varimax (Orthogonal)", "Promax (Oblique)", "Oblimin (Oblique)","Oblimax (Orthogonal)","Quartimin (Oblique)","Quartimax (Orthogonal)","Equamax (Orthogonal)", "None"])
 
             if extraction_method == "Principal Axis Factoring":
                 method = 'principal'
             elif extraction_method == "Maximum Likelihood":
                 method = 'ml'
+            elif extraction_method == "Unweighted Least Squares (ULS)":
+                method = 'uls'
             elif extraction_method == "Minres":
                 method = 'minres'
 
@@ -1704,8 +1728,10 @@ elif main_tab == "Factorial Analysis":
                     raise ValueError("Empty model definition")
     
                 model = Model(model_definition)
-                model.fit(df_selected)
-                #g = semopy.semplot(model,filename="jeje.png", std_ests=True)
+                res_opt = model.fit(df_selected)
+                st.write(res_opt)
+                g = semopy.semplot(model,filename="jeje.png", std_ests=True)
+                st.image("jeje.png")
                 # Comprobaciones adicionales del modelo
                 if not model.parameters:
                     st.error("No parameters found in the model.")
