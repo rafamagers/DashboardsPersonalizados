@@ -30,7 +30,6 @@ from semopy import Model, Optimizer, semplot
 from semopy.inspector import inspect
 import semopy
 os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta si es necesario
-
 #from transformers import pipeline
 #qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
 
@@ -64,8 +63,10 @@ if 'num_factors' not in st.session_state:
 if 'factor_items' not in st.session_state:
     st.session_state.factor_items = {f'Factor {i+1}': [] for i in range(st.session_state.num_factors)}
 
-
-
+if 'models' not in st.session_state:
+    st.session_state.models = []
+if 'last_selected_factor' not in st.session_state:
+    st.session_state.last_selected_factor = None
 @st.cache_data
 def load_data(uploaded_file,deli):
     if uploaded_file is not None:
@@ -1519,7 +1520,7 @@ elif main_tab == "Factorial Analysis":
         columns_list = list(columns)
         
         # Selección de ítems
-        selected_items = st.multiselect("Select items for EFA", columns_list, default=columns_list)
+        selected_items = st.multiselect("Select items for EFA", columns_list, default=None)
         
         if selected_items:
             df_selected = df[selected_items]
@@ -1549,7 +1550,7 @@ elif main_tab == "Factorial Analysis":
             # Tipo de matriz de correlación
 
             # Método de extracción
-            extraction_method = st.selectbox("Select extraction method", ["Principal Axis Factoring", "Maximum Likelihood","Unweighted Least Squares (ULS)", "Minres"])
+            extraction_method = st.selectbox("Select extraction method", ["Principal Axis Factoring", "Maximum Likelihood","Unweighted Least Squares (ULS)", "Minimal Residual"])
             rotation = st.selectbox("Select rotation method", ["Varimax (Orthogonal)", "Promax (Oblique)", "Oblimin (Oblique)","Oblimax (Orthogonal)","Quartimin (Oblique)","Quartimax (Orthogonal)","Equamax (Orthogonal)", "None"])
 
             if extraction_method == "Principal Axis Factoring":
@@ -1558,7 +1559,7 @@ elif main_tab == "Factorial Analysis":
                 method = 'ml'
             elif extraction_method == "Unweighted Least Squares (ULS)":
                 method = 'uls'
-            elif extraction_method == "Minres":
+            elif extraction_method == "Minimal Residual":
                 method = 'minres'
 
             fa = FactorAnalyzer(rotation=None, method=method)
@@ -1653,8 +1654,9 @@ elif main_tab == "Factorial Analysis":
 
                 # Posiciones fijas: Factores a la izquierda y ítems a la derecha
                 pos = {}
+                mitadabajo = len(loadings.index)//2-len(loadings.columns)//2
                 for i, factor in enumerate(loadings.columns):
-                    pos[factor] = (0, i)
+                    pos[factor] = (0, mitadabajo+i)
                 for i, item in enumerate(loadings.index):
                     pos[item] = (1, i)
 
@@ -1677,40 +1679,49 @@ elif main_tab == "Factorial Analysis":
 
         # Selección de ítems
         columns_list = list(columns)
-        selected_items = st.multiselect("Select items for CFA", columns_list, default=columns_list)
+        selected_items = st.multiselect("Select items for CFA", columns_list, default=None)
 
         if selected_items:
             df_selected = df[selected_items]
 
         # Mostrar selectores de ítems para cada factor y almacenar ítems seleccionados temporalmente
+        initial_factor_items = st.session_state.factor_items.copy()
+
         temp_factor_items = {}
         used_items = set()
+        update_required = False
 
-        initial_factor_items = st.session_state.factor_items.copy()
-        
+        # Iterar sobre los factores y sus ítems
         for factor in st.session_state.factor_items.keys():
             available_items = [item for item in selected_items if item not in used_items]
-            current_items = [item for item in st.session_state.factor_items[factor] if item in available_items]
-        
+
+            # Crear el multiselect para cada factor
             temp_factor_items[factor] = st.multiselect(
                 f"Select items for {factor}",
                 available_items,
-                current_items,
                 key=f'{factor}_selected_items'
             )
             used_items.update(temp_factor_items[factor])
-        
-        # Actualizar ítems seleccionados para cada factor en session_state
-        for factor, items in temp_factor_items.items():
-            st.session_state.factor_items[factor] = items
-        
-        # Verificar si hubo cambios en los ítems seleccionados
-        if initial_factor_items != st.session_state.factor_items:
-            st.experimental_rerun()  # Forzar la recarga de la página
 
+        for factor, items in temp_factor_items.items():
+            if st.session_state.factor_items[factor] != items:
+                st.session_state.factor_items[factor] = items
+                # Verificar si el factor actual es diferente al último factor seleccionado
+                if st.session_state.last_selected_factor and st.session_state.last_selected_factor != factor:
+                    update_required = True
+                st.session_state.last_selected_factor = factor
+
+        # Si hubo cambios en el factor seleccionado y es un factor diferente, forzar la recarga de la página
+        #if update_required:
+            #st.rerun()
         # Botones para agregar o quitar factores
         st.button("Add Factor", on_click=add_factor)
         st.button("Remove Factor", on_click=remove_factor)
+
+        functionmethod = st.selectbox("Select objective function to minimize", 
+                                      ["Wishart loglikelihood (MLW)", "Unweighted Least Squares (ULS)", 
+                                       "Generalized Least Squares (GLS)", "Weighted Least Squares (WLS)", 
+                                       "Diagonally Weighted Least Squares (DWLS)", "Full Information Maximum Likelihood (FIML)"])
 
         # Construir la definición del modelo
         model_definition = ""
@@ -1719,43 +1730,59 @@ elif main_tab == "Factorial Analysis":
                 model_definition += f"F{factor[-1]} =~ {' + '.join(items)}\n"
 
         st.text_area("Model Definition (lavaan syntax)", model_definition, height=150, disabled=True)
-
-        if st.button("Run CFA"):
+        if st.button("Run CFA (Add model)"):
             try:
                 # Verificar si la definición del modelo es válida
                 if not model_definition.strip():
                     st.error("The model definition cannot be empty.")
                     raise ValueError("Empty model definition")
-    
+
                 model = Model(model_definition)
-                res_opt = model.fit(df_selected)
-                st.write(res_opt)
-                g = semopy.semplot(model,filename="jeje.png", std_ests=True)
-                st.image("jeje.png")
+                res_opt = model.fit(df_selected, obj=(functionmethod.split(" ")[-1])[1:-1])
+
+                # Añadir el modelo a la lista de modelos en session_state
+                st.session_state.models.append((model, res_opt))
+
                 # Comprobaciones adicionales del modelo
                 if not model.parameters:
                     st.error("No parameters found in the model.")
                     raise ValueError("No parameters found in the model")
-                
-                # Extraer las cargas factoriales para visualización
+
+            except Exception as e:
+                st.error(f"Error fitting model: {e}")
+
+        # Mostrar resultados de todos los modelos
+        if st.session_state.models:
+            for idx, (model, res_opt) in enumerate(st.session_state.models):
+                st.write(f"Model {idx+1}")
+                g = semopy.semplot(model, filename=f"model_{idx}.png", std_ests=True)
+                st.image(f"model_{idx}.png")
+                st.write("Number of iterations: ")
+                st.write(res_opt.n_it)
+
                 estimates = model.inspect(std_est=True)
+                estimates = estimates.applymap(lambda x: round(x, 4) if isinstance(x, (int, float)) else x)
                 st.write("Model estimation")
                 st.dataframe(estimates, hide_index=True)
+
                 st.write("Statistics")
                 stats = semopy.calc_stats(model).round(3)
                 st.write(stats)
-                cov_estimate,_ = model.calc_sigma() 
+
+                cov_estimate, _ = model.calc_sigma() 
                 cov = model.mx_cov
-                residual = cov -cov_estimate
+                residual = cov - cov_estimate
                 std_residual = residual / np.std(residual)
-                std_res= pd.DataFrame(
-                std_residual,
-                columns=model.names_lambda[0], index=model.names_lambda[0],
+                std_res = pd.DataFrame(
+                    std_residual,
+                    columns=model.names_lambda[0], index=model.names_lambda[0],
                 )
                 st.write("Residue of covariance Matrix")
                 st.write(std_res)
-                loadings = estimates[estimates["op"]=="~"]
-                constructs= loadings["rval"].unique().tolist()
+
+                loadings = estimates[estimates["op"] == "~"]
+                constructs = loadings["rval"].unique().tolist()
+
                 # AVE computation 
                 st.write("Average Variance Extracted")
                 lods = []
@@ -1769,25 +1796,6 @@ elif main_tab == "Factorial Analysis":
 
                 # Mostrar DataFrame en Streamlit
                 st.dataframe(df_ave, hide_index=True)
-                # Imprimir las cargas para depuración
-                #print("CR")
-                #estimates = model.inspect(std_est=True)
-                #loadings = estimates[estimates["op"] == "~"] 
-                #lambdas= pd.DataFrame( model.mx_lambda,
-                #                      columns = model.names[1],
-                #                      index=model.names[0]
-                #)
-                #constructs = loadings["rval"].unique().tolist()
-                #
-                #for cons in constructs:
-                #    loads =loadings[loadings["rval"] == cons]["Est. Std"] 
-                #    idx= np.array(lambdas[cons].to_numpy().nonzero()[0]) 
-                #    vars= np.array(model.names[0])[idx].tolist() 
-                #    errors= estimates.query(f' op="" & lval == rval & rval == = & Ival rval & rval == {vars} ')["Est. Std"]
-                #    cr = loads.sum()**2/(loads.sum()**2+ errors.sum() ** 2) 
-                #    print(cons, ":", cr)
-            except Exception as e:
-                st.error(f"Error fitting model: {e}")
 # Layout para 'Data Codification'
 elif main_tab == "Data Codification":
     if 'show_manual_change' not in st.session_state:
