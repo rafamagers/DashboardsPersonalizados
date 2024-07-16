@@ -32,7 +32,7 @@ import semopy
 from scipy.stats import norm, multivariate_normal
 import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri
-from rystats import rystats
+#from RyStats.common import polychoric_correlation
 os.environ['PATH'] = f"{os.path.expanduser('~/R/bin')}:{os.environ['PATH']}"
 os.environ['R_HOME'] = os.path.expanduser('~/R')
 os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta si es necesario
