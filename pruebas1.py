@@ -29,12 +29,28 @@ import pingouin as pg
 from semopy import Model, Optimizer, semplot
 from semopy.inspector import inspect
 import semopy
+from scipy.stats import norm, multivariate_normal
+import rpy2.robjects as robjects
+from rpy2.robjects import pandas2ri
+from rystats import rystats
+os.environ['PATH'] = f"{os.path.expanduser('~/R/bin')}:{os.environ['PATH']}"
+os.environ['R_HOME'] = os.path.expanduser('~/R')
 os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta si es necesario
 #from transformers import pipeline
 #qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
 
 # Inicializar el traductor
 translator = Translator()
+pandas2ri.activate()
+
+def correlacion_policorica(df):
+    r_df = pandas2ri.py2rpy(df)
+    r = robjects.r
+    r('library(RyStats)')
+    polychoric_matrix = r('polychoric')(r_df)
+    polychoric_matrix_df = pandas2ri.rpy2py(polychoric_matrix)
+    return polychoric_matrix_df
+
 # Estado inicial
 if 'current_tab' not in st.session_state:
     st.session_state.current_tab = "Descriptive Analysis"
@@ -372,7 +388,8 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
 
         fig.update_layout(
             height=150+ 350 * num_subplots * len(column_names) / 8,
-            showlegend=False
+            showlegend=False,
+            title=f'{column_names[0].split("-")[0]}'
         )
 
         for i in range(num_subplots):
@@ -395,7 +412,8 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
         fig.update_layout(
             xaxis_title='Frecuency (%)',
             yaxis=dict(autorange="reversed"),
-            height=150 + 250 * len(column_names) / 8
+            height=150 + 250 * len(column_names) / 8,
+            title=f'{column_names[0].split("-")[0]}'
         )
 
     return fig
@@ -717,77 +735,125 @@ def generate_mean_polygon_chart(df, selected_x, selected_y, filter_var):
     )
     return fig
 def generate_violin_chart(df, selected_x, selected_y, filter_var, show_points):
-    if filter_var!= "No filter":
-        fig = px.violin(df, y=selected_y, x=selected_x, color=filter_var, box=True,
-                        points='all' if show_points else False,
-                        hover_data=df.columns)
+    if selected_x == "No variable":
+        fig = px.violin(df, y=selected_y, box=show_box, points='all' if show_points else False)
+        # Ocultar completamente el eje x
+        fig.update_layout(xaxis_title=None, xaxis_showticklabels=False, xaxis=dict(showgrid=False, zeroline=False))
     else:
-        clases = df[selected_x].unique()
-        fig = go.Figure()
-        for clase in clases:
-            fig.add_trace(go.Violin(x=df[selected_x][df[selected_x] == clase],
-                                    y=df[selected_y][df[selected_x] == clase],
-                                    name=str(clase),
-                                    box_visible=True,
-                                    meanline_visible=True,
-                                    points='all' if show_points else False))
+        if filter_var != "No filter":
+            fig = px.violin(df, y=selected_y, x=selected_x, color=filter_var, box=True,
+                            points='all' if show_points else False,
+                            box_visible=show_box,
+                            hover_data=df.columns)
+        else:
+            clases = df[selected_x].unique()
+            fig = go.Figure()
+            for clase in clases:
+                fig.add_trace(go.Violin(x=df[selected_x][df[selected_x] == clase],
+                                        y=df[selected_y][df[selected_x] == clase],
+                                        name=str(clase),
+                                        box_visible=show_box,
+                                        meanline_visible=True,
+                                        points='all' if show_points else False))
+    
     fig.update_layout(
         height=500,
         width=1400,
         showlegend=True,
     )
+
+    return fig
+def generate_box_plot(df, selected_x, selected_y, filter_var, show_points):
+    if selected_x == "No variable":
+        fig = px.box(df, y=selected_y, points='all' if show_points else False)
+        # Ocultar completamente el eje x
+        fig.update_layout(xaxis_title=None, xaxis_showticklabels=False, xaxis=dict(showgrid=False, zeroline=False))
+    else:
+        if filter_var != "No filter":
+            fig = px.box(df, y=selected_y, x=selected_x, color=filter_var,
+                         points='all' if show_points else False,
+                         hover_data=df.columns)
+        else:
+            clases = df[selected_x].unique()
+            fig = go.Figure()
+            for clase in clases:
+                fig.add_trace(go.Box(x=df[selected_x][df[selected_x] == clase],
+                                     y=df[selected_y][df[selected_x] == clase],
+                                     name=str(clase),
+                                     boxpoints='all' if show_points else 'outliers'))
+    
+    fig.update_layout(
+        height=500,
+        width=1400,
+        showlegend=True,
+    )
+
     return fig
 def generate_ridgeline_chart(df, selected_x, selected_y, filter_var):
-    if filter_var!="No filter":
-        unique_values = df[filter_var].unique()
-        fig = make_subplots(rows=len(unique_values), cols=1, shared_yaxes=True)
-        clases = df[selected_x].unique()
-        colors = px.colors.sample_colorscale("Viridis", [n/len(clases) for n in range(len(clases))])
+    if selected_x == "No variable":
+        fig = px.violin(df, x=selected_y, box=False, points='all' if show_points else False)
+        # Ocultar completamente el eje x
+        fig.update_traces(orientation='h', side='positive', width=3, points=False)
+        
+        fig.update_layout(
 
-        for i, value in enumerate(unique_values):
-            filtered_df = df[df[filter_var] == value]
+            showlegend=False,
+            title=f'Ridgeline chart: {selected_y}'
+        )
+    else:
+        
+        if filter_var!="No filter":
+            unique_values = df[filter_var].unique()
+            fig = make_subplots(rows=len(unique_values), cols=1, shared_yaxes=True)
+            clases = df[selected_x].unique()
+            colors = px.colors.sample_colorscale("Viridis", [n/len(clases) for n in range(len(clases))])
 
-            for clase, color in zip(clases, colors):
-                fig.add_trace(
-                    go.Violin(
-                        x=filtered_df[selected_y][filtered_df[selected_x] == clase],
-                        line_color=color,
-                        name=str(clase)
-                    ), 
-                    row=i+1, col=1
+            for i, value in enumerate(unique_values):
+                filtered_df = df[df[filter_var] == value]
+
+                for clase, color in zip(clases, colors):
+                    fig.add_trace(
+                        go.Violin(
+                            x=filtered_df[selected_y][filtered_df[selected_x] == clase],
+                            line_color=color,
+                            name=str(clase)
+                        ), 
+                        row=i+1, col=1
+                    )
+
+                fig.add_annotation(
+                    dict(
+                        text=f'{value}',
+                        xref='paper', yref='paper',
+                        x=0.5, y=1 - (i / len(unique_values)*1.06),
+                        xanchor='center',
+                        yanchor='bottom',
+                        showarrow=False,
+                        font=dict(size=14)
+                    )
                 )
 
-            fig.add_annotation(
-                dict(
-                    text=f'{value}',
-                    xref='paper', yref='paper',
-                    x=0.5, y=1 - (i / len(unique_values)*1.06),
-                    xanchor='center',
-                    yanchor='bottom',
-                    showarrow=False,
-                    font=dict(size=14)
-                )
+                fig.update_xaxes(title_text=selected_y, row=i+1, col=1)
+                fig.update_yaxes(title_text=selected_x, row=i+1, col=1)
+
+            fig.update_traces(orientation='h', side='positive', width=3, points=False)
+
+            fig.update_layout(
+                height=len(unique_values) * 500,
+                width=1400,
+                showlegend=False,
+                title=f'Ridgeline chart: {selected_x} vs {selected_y}'
+
             )
 
-            fig.update_xaxes(title_text=selected_y, row=i+1, col=1)
-            fig.update_yaxes(title_text=selected_x, row=i+1, col=1)
-
-        fig.update_traces(orientation='h', side='positive', width=3, points=False)
-
-        fig.update_layout(
-            height=len(unique_values) * 500,
-            width=1400,
-            showlegend=False,
-        )
-
-    else:
-        fig = go.Figure()
-        clases = df[selected_x].unique()
-        colors = px.colors.sample_colorscale("Viridis", [n/len(clases) for n in range(len(clases))])
-        for clase, color in zip(clases, colors):
-            fig.add_trace(go.Violin(x=df[selected_y][df[selected_x] == clase], line_color=color, name=str(clase)))
-        fig.update_traces(orientation='h', side='positive', width=3, points=False)
-        fig.update_layout(xaxis_zeroline=False, yaxis_title=f'{selected_x}', xaxis_title=f'{selected_y}',)
+        else:
+            fig = go.Figure()
+            clases = df[selected_x].unique()
+            colors = px.colors.sample_colorscale("Viridis", [n/len(clases) for n in range(len(clases))])
+            for clase, color in zip(clases, colors):
+                fig.add_trace(go.Violin(x=df[selected_y][df[selected_x] == clase], line_color=color, name=str(clase)))
+            fig.update_traces(orientation='h', side='positive', width=3, points=False)
+            fig.update_layout(xaxis_zeroline=False, yaxis_title=f'{selected_x}', xaxis_title=f'{selected_y}',)
     
     return fig
 def generate_displot_chart(df, selected_x, selected_y, filter_var):
@@ -846,11 +912,62 @@ def generate_displot_chart(df, selected_x, selected_y, filter_var):
     
     return fig
 def polychoric_correlation(df):
-    # Pingouin tiene una función para calcular la matriz de correlación policórica
-    corr =  pg.pcorr(df)
-    print(corr)
-    #corr = corr + corr.T - np.diag(np.diag(corr))
-    return corr
+    def polychoric_correlation(x, y):
+        # Obtén las frecuencias de las combinaciones de las categorías
+        freq_table = pd.crosstab(x, y)
+        # Obtén los puntos de corte asumiendo una distribución normal
+        x_margins = freq_table.sum(axis=1).cumsum() / len(x)
+        y_margins = freq_table.sum(axis=0).cumsum() / len(y)
+        
+        x_cutoffs = norm.ppf(np.insert(x_margins.values[:-1], 0, 0))
+        y_cutoffs = norm.ppf(np.insert(y_margins.values[:-1], 0, 0))
+        
+        # Calcula la probabilidad de cada combinación de puntos de corte
+        P = freq_table / len(x)
+        P_cumsum = P.cumsum(axis=1).cumsum(axis=0)
+        
+        # Define una función para calcular la probabilidad acumulada bivariada
+        def bivnorm_cdf(x0, x1, y0, y1, rho):
+            return norm.cdf([x1, y1], cov=[[1, rho], [rho, 1]])[1] - \
+                   norm.cdf([x0, y1], cov=[[1, rho], [rho, 1]])[1] - \
+                   norm.cdf([x1, y0], cov=[[1, rho], [rho, 1]])[1] + \
+                   norm.cdf([x0, y0], cov=[[1, rho], [rho, 1]])[1]
+        
+        # Define una función para calcular la verosimilitud
+        def likelihood(rho):
+            log_likelihood = 0
+            for i in range(len(x_cutoffs)):
+                for j in range(len(y_cutoffs)):
+                    p_ij = P_cumsum.iloc[i, j] if i == 0 or j == 0 else P_cumsum.iloc[i, j] - \
+                           (P_cumsum.iloc[i-1, j] if i > 0 else 0) - \
+                           (P_cumsum.iloc[i, j-1] if j > 0 else 0) + \
+                           (P_cumsum.iloc[i-1, j-1] if i > 0 and j > 0 else 0)
+                    p_ij = max(p_ij, 1e-10)  # Evita el log(0)
+                    x0 = x_cutoffs[i-1] if i > 0 else -np.inf
+                    x1 = x_cutoffs[i] if i < len(x_cutoffs) else np.inf
+                    y0 = y_cutoffs[j-1] if j > 0 else -np.inf
+                    y1 = y_cutoffs[j] if j < len(y_cutoffs) else np.inf
+                    p_ij_theory = bivnorm_cdf(x0, x1, y0, y1, rho)
+                    log_likelihood += p_ij * np.log(p_ij_theory)
+            return -log_likelihood
+        
+        # Encuentra el rho que maximiza la verosimilitud
+        from scipy.optimize import minimize
+        result = minimize(likelihood, 0, bounds=[(-1, 1)])
+        return result.x[0]
+    
+    # Calcula la matriz de correlación policórica
+    cols = df.columns
+    n = len(cols)
+    corr_matrix = np.eye(n)
+    for i in range(n):
+        for j in range(i+1, n):
+            corr = polychoric_correlation(df[cols[i]], df[cols[j]])
+            corr_matrix[i, j] = corr
+            corr_matrix[j, i] = corr
+    
+    return pd.DataFrame(corr_matrix, index=cols, columns=cols)
+
 
 # Función para determinar el número de factores a retener
 def determine_number_of_factors(eigenvalues, method):
@@ -900,15 +1017,23 @@ def update_numerico(selected_grafico, selected_x, selected_y, filter_var, show_p
    
     elif selected_grafico == 'Displot chart':
         fig = generate_displot_chart(df, selected_x, selected_y, filter_var)
+    elif selected_grafico == 'Box plot':
+        fig = generate_box_plot(df, selected_x, selected_y, filter_var, show_points)
     else:
         return go.Figure()
 
     if selected_grafico in ['Mean polygon chart', 'Violin chart']:
-        fig.update_layout(
-            xaxis_title=f'{selected_x}',
-            yaxis_title=f'{selected_y}',
-            title=f'{selected_grafico.capitalize()}: {selected_x} vs {selected_y}'
-        )
+        if (selected_x != "No variable"):
+            fig.update_layout(
+                xaxis_title=f'{selected_x}',
+                yaxis_title=f'{selected_y}',
+                title=f'{selected_grafico.capitalize()}: {selected_x} vs {selected_y}'
+            )
+        else:
+            fig.update_layout(
+                yaxis_title=f'{selected_y}',
+                title=f'{selected_grafico.capitalize()}: {selected_y}'
+            )     
     return fig
 
 # Función para generar el HTML del reporte
@@ -1113,6 +1238,9 @@ if main_tab == "Descriptive Analysis":
         tipo_grafico = st.selectbox("Choose your chart:", ['Bar Chart', 'Pie Chart', 'Contingency Table', 'Word Cloud'])
         x_axis = st.selectbox("Choose your variable:",[""]+ columns)
         filtro = st.selectbox("Choose your filter:",["No filter"]+ columns)
+        if tipo_grafico == 'Bar Chart':
+            rowper = st.checkbox("Horizontal bars")
+
         if (filtro!="No filter" and tipo_grafico != "Wordcloud"):
             st.text("Choose what percentage you want to see in the table (order: N/Table %, N/row %, N/column %):")
             totalper = st.checkbox("N/Table total %", True)
@@ -1125,21 +1253,31 @@ if main_tab == "Descriptive Analysis":
                     aux_df[x_axis].fillna("No answer", inplace=True)
                     fig = go.Figure()
                     data_table = []
-        
+                    
                     if filtro != "No filter":
                         filtered_dfs = aux_df.groupby(filtro)
                         for filter_value, filtered_df in filtered_dfs:
                             counts = filtered_df[x_axis].value_counts()
                             total_counts = counts.sum()
                             percentages = (counts / total_counts) * 100
-        
-                            fig.add_trace(go.Bar(
+                            if rowper:
+                                fig.add_trace(go.Bar(
+                                x=counts,
+                                y=counts.index,
+                                name=str(filter_value),
+                                text=[f'{p:.1f}%' for p in percentages],
+                                textposition='auto',
+                                orientation="h"
+                                ))
+                            else:
+                                fig.add_trace(go.Bar(
                                 x=counts.index,
                                 y=counts,
                                 name=str(filter_value),
                                 text=[f'{p:.1f}%' for p in percentages],
-                                textposition='auto'
-                            ))
+                                textposition='auto',
+                                orientation="v"
+                                ))
         
                             data_table.extend(filtered_df[[x_axis, filtro]].to_dict('records'))
         
@@ -1157,12 +1295,22 @@ if main_tab == "Descriptive Analysis":
                         counts = aux_df[x_axis].value_counts()
                         total_counts = counts.sum()
                         percentages = (counts / total_counts) * 100
-                        fig.add_trace(go.Bar(
+                        if rowper:
+                            fig.add_trace(go.Bar(
+                            x=counts,
+                            y=counts.index,
+                            text=[f'{p:.1f}%' for p in percentages],
+                            textposition='auto',
+                            orientation="h"
+                            ))
+                        else:
+                            fig.add_trace(go.Bar(
                             x=counts.index,
                             y=counts,
                             text=[f'{p:.1f}%' for p in percentages],
-                            textposition='auto'
-                        ))
+                            textposition='auto',
+                            orientation="v"
+                            ))
                         fig.update_layout(
                             height=700
                         )
@@ -1485,12 +1633,14 @@ if main_tab == "Descriptive Analysis":
             st.text("3: You can optionally choose a categorical filter that will allow you to visualise the change of your variables according to the chosen filter.")
             st.text("4: Click on Sumbit to visualise your graphic")   
         numeric_columns = df.select_dtypes(include=['number']).columns.tolist()        
-        chart_type = st.selectbox("Select your chart:", ['Mean polygon chart', 'Violin chart', 'Ridgeline chart', 'Displot chart'])
-        cat_var = st.selectbox("Select your first variable (categoric):", [""]+columns)
-        num_var = st.selectbox("Select your second variable (numeric):", [""]+numeric_columns)
+        chart_type = st.selectbox("Select your chart:", ['Box plot', 'Mean polygon chart', 'Violin chart', 'Ridgeline chart', 'Displot chart'])
+        num_var = st.selectbox("Select your numerical variable:", [""]+numeric_columns)
+        cat_var = st.selectbox("Select your group variable:", ["No variable"]+columns)
         filter_var = st.selectbox("Select your filter (categoric):", ["No filter"]+columns)
         if chart_type == 'Violin chart':
             show_points = st.checkbox("Show Points")
+            show_box = st.checkbox("Show Box")
+            #show_ = st.checkbox("Show labels")
         else:
             show_points = False
 
@@ -1533,7 +1683,7 @@ elif main_tab == "Factorial Analysis":
             if correlation_matrix_type == "Pearson":
                 correlation_matrix = df_selected.corr()
             else:
-                correlation_matrix = polychoric_correlation(df_selected)
+                correlation_matrix = correlacion_policorica(df_selected)
 
             # Mostrar matriz de correlación al pulsar un botón
             if st.checkbox("Show Correlation Matrix"):
@@ -1656,8 +1806,9 @@ elif main_tab == "Factorial Analysis":
                 pos = {}
                 mitadabajo = len(loadings.index)//2-len(loadings.columns)//2
                 for i, factor in enumerate(loadings.columns):
-                    pos[factor] = (0, mitadabajo+i)
+                    pos[factor] = (0,int( (i+1)/(len(loadings.columns))*(len(loadings.index)-1)))
                 for i, item in enumerate(loadings.index):
+                    print(i)
                     pos[item] = (1, i)
 
                 edges = G.edges(data=True)
@@ -1666,8 +1817,8 @@ elif main_tab == "Factorial Analysis":
                 colors = [G.nodes[node]['color'] for node in G.nodes]
 
                 fig, ax = plt.subplots(figsize=(12, 8))
-                nx.draw(G, pos, with_labels=True, node_color=colors, edge_color=weights, width=2.0, edge_cmap=plt.cm.Blues, node_size=3000, font_size=10, font_weight='bold', ax=ax)
-                sm = plt.cm.ScalarMappable(cmap=plt.cm.Blues, norm=plt.Normalize(vmin=min(weights), vmax=max(weights)))
+                nx.draw(G, pos, with_labels=True, node_color=colors, edge_color=weights,edge_vmin=0.0, edge_vmax=1.0, width=2.0, edge_cmap=plt.cm.Blues, node_size=3000, font_size=10, font_weight='bold', ax=ax)
+                sm = plt.cm.ScalarMappable(cmap=plt.cm.Blues, norm=plt.Normalize(vmin=0, vmax=1))
                 sm.set_array(weights)
                 fig.colorbar(sm, ax=ax, label='Factor Loading Strength')
 
