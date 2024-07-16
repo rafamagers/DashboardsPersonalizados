@@ -1,10 +1,5 @@
 graphviz
-libcurl4-openssl-dev
-libssl-dev
-libxml2-dev
-libharfbuzz-dev
-libfribidi-dev
-libfreetype6-dev
-libpng-dev
-libtiff5-dev
-libjpeg-dev
+r-base
+r-base-dev
+r-cran-ggplot2
+r-cran-cowplot
