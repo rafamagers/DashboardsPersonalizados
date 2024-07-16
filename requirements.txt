@@ -13,5 +13,4 @@ factor_analyzer
 pingouin
 semopy
 graphviz
-rpy2
 RyStats
