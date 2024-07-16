@@ -30,9 +30,8 @@ from semopy import Model, Optimizer, semplot
 from semopy.inspector import inspect
 import semopy
 from scipy.stats import norm, multivariate_normal
-import rpy2.robjects as robjects
-from rpy2.robjects import pandas2ri
-#from RyStats.common import polychoric_correlation
+
+from RyStats.common import polychoric_correlation_serial
 os.environ['PATH'] = f"{os.path.expanduser('~/R/bin')}:{os.environ['PATH']}"
 os.environ['R_HOME'] = os.path.expanduser('~/R')
 os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta si es necesario
@@ -41,15 +40,7 @@ os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta 
 
 # Inicializar el traductor
 translator = Translator()
-pandas2ri.activate()
 
-def correlacion_policorica(df):
-    r_df = pandas2ri.py2rpy(df)
-    r = robjects.r
-    r('library(RyStats)')
-    polychoric_matrix = r('polychoric')(r_df)
-    polychoric_matrix_df = pandas2ri.rpy2py(polychoric_matrix)
-    return polychoric_matrix_df
 
 # Estado inicial
 if 'current_tab' not in st.session_state:
@@ -136,11 +127,38 @@ def translate_dataframe(df):
             df.rename(columns={col: new_col_name}, inplace=True)
         return "Translated entire dataframe to English."
     return "Dataframe is empty."
+def rename_columns(df, old_char, new_char):
+    # Get current column names
+    columns = df.columns.tolist()
+    
+    # Rename columns by replacing the first occurrence of old_char with new_char
+    renamed_columns = [col.replace(old_char, new_char, 1) for col in columns]
+    
+    # Assign the new column names to the DataFrame
+    df.columns = renamed_columns
+    
+    return "DataFrame with Renamed Columns"
+def combinereplace_columns(df, main_column, other_column, value_to_replace):
+    # Iterar sobre las filas del DataFrame
+    for index, row in df.iterrows():
+        if row[main_column] == value_to_replace:
+            df.at[index, main_column] = row[other_column]
+    df.drop(columns=[other_column], inplace=True)  # Eliminar la segunda columna después de combinar
+    
+    return "Completed"
+
+# Función para combinar en una nueva columna sin modificar las columnas originales
+def combine_columns(df, main_column, other_column, value_to_replace):
+    # Crear una nueva columna con la combinación de las dos columnas
+    new_column_name = f'{main_column} (Combined)'
+    df[new_column_name] = df.apply(lambda row: row[other_column] if row[main_column] == value_to_replace else row[main_column], axis=1)
+    
+    return "Completed"
 # Función para agrupar códigos
 def agrupar_codigos(codigos):
     grupos = defaultdict(list)
     for codigo in codigos:
-        parte_comun = codigo.split('-')[0]
+        parte_comun = codigo.split('_')[0]
         grupos[parte_comun].append(codigo)
     arreglo_final = [{'label': clave, 'value': '|'.join(codigos)}
                      for clave, codigos in grupos.items() if len(codigos) > 1]
@@ -339,6 +357,7 @@ def calcular_medias(df, nombres_columnas):
 
 # Función para generar paleta de colores
 def generate_color_palette(n):
+    
     end_color = np.array([0, 57, 255, 0.8])  # Rojo
     start_color = np.array([1, 26, 109, 1])    # Verde
     colors = np.linspace(start_color, end_color, n)
@@ -378,7 +397,7 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
             fig.add_trace(
                 go.Bar(
                     x=frequencies,
-                    y=[elemento.split("-")[-1] for elemento in column_names],
+                    y=[elemento.split("_")[-1] for elemento in column_names],
                     orientation='h',
                     text=[f'{freq:.1f}%' for freq in frequencies],
                     textposition='auto'
@@ -389,7 +408,7 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
         fig.update_layout(
             height=150+ 350 * num_subplots * len(column_names) / 8,
             showlegend=False,
-            title=f'{column_names[0].split("-")[0]}'
+            title=f'{column_names[0].split("_")[0]}'
         )
 
         for i in range(num_subplots):
@@ -404,16 +423,16 @@ def generate_horizontal_bar_chart(df, column_names, filtro):
         
         fig = go.Figure(go.Bar(
             x=frequencies,
-            y=[elemento.split("-")[-1] for elemento in column_names],
+            y=[elemento.split("_")[-1] for elemento in column_names],
             orientation='h',
             text=[f'{freq:.1f}%' for freq in frequencies],
             textposition='auto'
         ))
         fig.update_layout(
-            xaxis_title='Frecuency (%)',
+            xaxis_title='Proportion (%)',
             yaxis=dict(autorange="reversed"),
             height=150 + 250 * len(column_names) / 8,
-            title=f'{column_names[0].split("-")[0]}'
+            title=f'{column_names[0].split("_")[0]}'
         )
 
     return fig
@@ -428,7 +447,7 @@ def generate_radar_chart(df, columnas, filtro):
     for i, valor in enumerate(unique_filter_values):
         filtered_df = df[df[filtro] == valor] if filtro!="No filter" else df
         medias_columnas = calcular_medias(filtered_df, columnas)
-        y_data = ["~"+elemento.split("-")[-1] for elemento in columnas]
+        y_data = ["~"+elemento.split("_")[-1] for elemento in columnas]
         fig.add_trace(go.Scatterpolar(
             r=medias_columnas,
             theta=y_data,
@@ -515,7 +534,7 @@ def generate_multibar_chart(df, columnas, filtro, likert):
         else:
             filtered_df = df[df[filtro] == valor]
         x_data = calcular_porcentajes_ocurrencias(filtered_df, columnas, valoresdecolumna)
-        y_data = [elemento.split("-")[-1] for elemento in columnas]
+        y_data = [elemento.split("_")[-1] for elemento in columnas]
         ##y_data.append("Mean")
         #Para cada porcentaje de una sola barra, normalmente serian 5 porcentajes
         for j in range(len(x_data[0])):
@@ -911,62 +930,6 @@ def generate_displot_chart(df, selected_x, selected_y, filter_var):
         )
     
     return fig
-def polychoric_correlation(df):
-    def polychoric_correlation(x, y):
-        # Obtén las frecuencias de las combinaciones de las categorías
-        freq_table = pd.crosstab(x, y)
-        # Obtén los puntos de corte asumiendo una distribución normal
-        x_margins = freq_table.sum(axis=1).cumsum() / len(x)
-        y_margins = freq_table.sum(axis=0).cumsum() / len(y)
-        
-        x_cutoffs = norm.ppf(np.insert(x_margins.values[:-1], 0, 0))
-        y_cutoffs = norm.ppf(np.insert(y_margins.values[:-1], 0, 0))
-        
-        # Calcula la probabilidad de cada combinación de puntos de corte
-        P = freq_table / len(x)
-        P_cumsum = P.cumsum(axis=1).cumsum(axis=0)
-        
-        # Define una función para calcular la probabilidad acumulada bivariada
-        def bivnorm_cdf(x0, x1, y0, y1, rho):
-            return norm.cdf([x1, y1], cov=[[1, rho], [rho, 1]])[1] - \
-                   norm.cdf([x0, y1], cov=[[1, rho], [rho, 1]])[1] - \
-                   norm.cdf([x1, y0], cov=[[1, rho], [rho, 1]])[1] + \
-                   norm.cdf([x0, y0], cov=[[1, rho], [rho, 1]])[1]
-        
-        # Define una función para calcular la verosimilitud
-        def likelihood(rho):
-            log_likelihood = 0
-            for i in range(len(x_cutoffs)):
-                for j in range(len(y_cutoffs)):
-                    p_ij = P_cumsum.iloc[i, j] if i == 0 or j == 0 else P_cumsum.iloc[i, j] - \
-                           (P_cumsum.iloc[i-1, j] if i > 0 else 0) - \
-                           (P_cumsum.iloc[i, j-1] if j > 0 else 0) + \
-                           (P_cumsum.iloc[i-1, j-1] if i > 0 and j > 0 else 0)
-                    p_ij = max(p_ij, 1e-10)  # Evita el log(0)
-                    x0 = x_cutoffs[i-1] if i > 0 else -np.inf
-                    x1 = x_cutoffs[i] if i < len(x_cutoffs) else np.inf
-                    y0 = y_cutoffs[j-1] if j > 0 else -np.inf
-                    y1 = y_cutoffs[j] if j < len(y_cutoffs) else np.inf
-                    p_ij_theory = bivnorm_cdf(x0, x1, y0, y1, rho)
-                    log_likelihood += p_ij * np.log(p_ij_theory)
-            return -log_likelihood
-        
-        # Encuentra el rho que maximiza la verosimilitud
-        from scipy.optimize import minimize
-        result = minimize(likelihood, 0, bounds=[(-1, 1)])
-        return result.x[0]
-    
-    # Calcula la matriz de correlación policórica
-    cols = df.columns
-    n = len(cols)
-    corr_matrix = np.eye(n)
-    for i in range(n):
-        for j in range(i+1, n):
-            corr = polychoric_correlation(df[cols[i]], df[cols[j]])
-            corr_matrix[i, j] = corr
-            corr_matrix[j, i] = corr
-    
-    return pd.DataFrame(corr_matrix, index=cols, columns=cols)
 
 
 # Función para determinar el número de factores a retener
@@ -1182,7 +1145,16 @@ def calculate_bartlett_corr_matrix(corr_matrix, n):
     p_value = 1 - chi2.cdf(chi_square_value, df)
     return chi_square_value, p_value
 
-
+# Función para obtener las columnas siguientes
+def get_next_columns(current_column, all_columns):
+    try:
+        idx = all_columns.index(current_column)
+        if idx < len(all_columns) - 1:
+            return all_columns[idx + 2]
+        else:
+            return ""
+    except ValueError:
+        return ""
 
 st.set_page_config(layout="wide")
 
@@ -1239,8 +1211,21 @@ if main_tab == "Descriptive Analysis":
         x_axis = st.selectbox("Choose your variable:",[""]+ columns)
         filtro = st.selectbox("Choose your filter:",["No filter"]+ columns)
         if tipo_grafico == 'Bar Chart':
-            rowper = st.checkbox("Horizontal bars")
-
+            hori = st.checkbox("Horizontal bars")
+        if tipo_grafico == 'Bar Chart' or tipo_grafico =='Pie Chart':
+            likert = st.selectbox("Choose your likert scale:", ['Original', 'Agreement (5)', 'Agreement (6)', 'Quality (5)', 'Frequency (5)', 'Frequency (6)'])
+            if likert=="Agreement (5)":
+                top_labels = {1: "Strongly disagree",2: "Disagree", 3: "Neutral", 4: "Agree", 5: "Strongly agree"}
+            elif likert=="Agreement (6)":
+                top_labels = {1: "Disagree Very Strongly", 2: "Disagree Strongly", 3: "Disagree", 4: "Agree",5: "Agree Strongly",6: "Agree Very Strongly"} 
+            elif likert=="Quality (5)":
+                top_labels = {1: "Very Poor",2: "Below average", 3: "Average", 4: "Above average", 5: "Excellent"}
+            elif likert=="Frequency (6)":
+                top_labels = {1:  "Never", 2: "Very rarely", 3: "Rarely",4: "Occacionally",5: "Very frequently",6: "Always"}
+            elif likert=="Frequency (5)":
+                top_labels = {1:  "Never", 2: "Rarely",3:  "Sometimes",4: "Very Often",5: "Always"}
+            else:
+                top_labels={}
         if (filtro!="No filter" and tipo_grafico != "Wordcloud"):
             st.text("Choose what percentage you want to see in the table (order: N/Table %, N/row %, N/column %):")
             totalper = st.checkbox("N/Table total %", True)
@@ -1251,6 +1236,7 @@ if main_tab == "Descriptive Analysis":
                 if tipo_grafico == 'Bar Chart':
                     aux_df = df.copy()
                     aux_df[x_axis].fillna("No answer", inplace=True)
+                    aux_df[x_axis] = aux_df[x_axis].map(lambda x: top_labels[x] if x in top_labels else x)
                     fig = go.Figure()
                     data_table = []
                     
@@ -1260,7 +1246,7 @@ if main_tab == "Descriptive Analysis":
                             counts = filtered_df[x_axis].value_counts()
                             total_counts = counts.sum()
                             percentages = (counts / total_counts) * 100
-                            if rowper:
+                            if hori:
                                 fig.add_trace(go.Bar(
                                 x=counts,
                                 y=counts.index,
@@ -1295,7 +1281,8 @@ if main_tab == "Descriptive Analysis":
                         counts = aux_df[x_axis].value_counts()
                         total_counts = counts.sum()
                         percentages = (counts / total_counts) * 100
-                        if rowper:
+                        print(counts.index)
+                        if hori:
                             fig.add_trace(go.Bar(
                             x=counts,
                             y=counts.index,
@@ -1312,7 +1299,8 @@ if main_tab == "Descriptive Analysis":
                             orientation="v"
                             ))
                         fig.update_layout(
-                            height=700
+                            height=700,
+                            title="Bar chart of "+str(x_axis)
                         )
                         counts = aux_df[x_axis].value_counts().reset_index()
                         counts.columns = [x_axis, 'count']
@@ -1321,6 +1309,7 @@ if main_tab == "Descriptive Analysis":
                 elif tipo_grafico == 'Pie Chart':
                     aux_df = df.copy()
                     aux_df[x_axis].fillna("No answer", inplace=True)
+                    aux_df[x_axis] = aux_df[x_axis].map(lambda x: top_labels[x] if x in top_labels else x)
                     fig = go.Figure()
                     data_table = []
         
@@ -1354,6 +1343,10 @@ if main_tab == "Descriptive Analysis":
                         )
                     else:
                         fig = px.pie(aux_df, names=x_axis)
+                        fig.update_layout(
+                           
+                            title="Pie chart of "+str(x_axis)
+                        )
                         counts = aux_df[x_axis].value_counts().reset_index()
                         counts.columns = [x_axis, 'count']
                         data_table = counts.to_dict('records')
@@ -1361,7 +1354,6 @@ if main_tab == "Descriptive Analysis":
                 elif tipo_grafico == 'Contingency Table':
                     fig = go.Figure()
                     data_table = []
-        
                     if filtro!="No filter":
                         contingency_table = pd.crosstab(df[x_axis], df[filtro])
                         fig = go.Figure(data=go.Heatmap(
@@ -1443,10 +1435,10 @@ if main_tab == "Descriptive Analysis":
                                 total_rows = filtered_df.shape[0]
                                 word_count = filtered_df[col].notna().sum()
                                 frequency = (word_count / total_rows) * 100
-                                datos.append([col.split("-")[-1], word_count, frequency])
+                                datos.append([col.split("_")[-1], word_count, frequency])
 
                             # Crear un DataFrame con los datos calculados
-                            df_resultado = pd.DataFrame(datos, columns=[columnas[0].split("-")[0], 'Count', '% Of total'])
+                            df_resultado = pd.DataFrame(datos, columns=[columnas[0].split("_")[0], 'Count', '% Of total'])
                             df_resultado['% Of total'] = df_resultado['% Of total'].apply(lambda x: f"{x:.3f}%")
                             # Mostrar el DataFrame en Streamlit
                             st.dataframe(df_resultado)
@@ -1491,10 +1483,10 @@ if main_tab == "Descriptive Analysis":
                             total_rows = df.shape[0]
                             word_count = df[col].notna().sum()
                             frequency = (word_count / total_rows) * 100
-                            datos.append([col.split("-")[-1], word_count, frequency])
+                            datos.append([col.split("_")[-1], word_count, frequency])
 
                         # Crear un DataFrame con los datos calculados
-                        df_resultado = pd.DataFrame(datos, columns=[columnas[0].split("-")[0], 'Count', '% Of total'])
+                        df_resultado = pd.DataFrame(datos, columns=[columnas[0].split("_")[0], 'Count', '% Of total'])
                         df_resultado['% Of total'] = df_resultado['% Of total'].apply(lambda x: f"{x:.3f}%")
                         # Mostrar el DataFrame en Streamlit
                         st.dataframe(df_resultado)
@@ -1672,7 +1664,7 @@ elif main_tab == "Factorial Analysis":
         # Selección de ítems
         selected_items = st.multiselect("Select items for EFA", columns_list, default=None)
         
-        if selected_items:
+        if len(selected_items)>1:
             df_selected = df[selected_items]
             
             # Tipo de rotación
@@ -1683,7 +1675,10 @@ elif main_tab == "Factorial Analysis":
             if correlation_matrix_type == "Pearson":
                 correlation_matrix = df_selected.corr()
             else:
-                correlation_matrix = correlacion_policorica(df_selected)
+                ordinal_data = df_selected.to_numpy()
+                ordinal_data_transposed = ordinal_data.transpose()  # o ordinal_data.T
+
+                correlation_matrix = polychoric_correlation_serial(ordinal_data_transposed)
 
             # Mostrar matriz de correlación al pulsar un botón
             if st.checkbox("Show Correlation Matrix"):
@@ -1955,10 +1950,14 @@ elif main_tab == "Data Codification":
         st.subheader("Manual data codification")
         column_to_edit = st.selectbox("Select column to edit:", [""]+st.session_state.df.columns)
                 # Generar inputs para valores únicos de la columna seleccionada
-        if st.button("Change values manually"):
-            st.session_state.show_manual_change = not st.session_state.show_manual_change
-        
-        if st.session_state.show_manual_change:
+        new_column_name = st.text_input("Edit column name:")
+        if st.button("Confirm name change"):
+            if new_column_name:
+                st.session_state.df.rename(columns={column_to_edit: new_column_name}, inplace=True)
+                st.success(f"Column name changed to '{new_column_name}'")
+                st.experimental_rerun()  # Refrescar la interfaz de usuario
+ 
+        if st.checkbox("Change values of column manually"):
             unique_values = st.session_state.df[column_to_edit].unique()
             new_values = {}
             for value in unique_values:
@@ -1970,13 +1969,7 @@ elif main_tab == "Data Codification":
                     st.session_state.df[column_to_edit].replace(old_value, new_value, inplace=True)
                 st.success("Values updated successfully")
                 st.experimental_rerun()
-        new_column_name = st.text_input("Edit column name:")
-        if st.button("Confirm name change"):
-            if new_column_name:
-                st.session_state.df.rename(columns={column_to_edit: new_column_name}, inplace=True)
-                st.success(f"Column name changed to '{new_column_name}'")
-                st.experimental_rerun()  # Refrescar la interfaz de usuario
- 
+
 
         st.subheader("Automatic data codification")
         if st.button("Translate column to English"):
@@ -1985,6 +1978,34 @@ elif main_tab == "Data Codification":
             st.experimental_rerun()
         if st.button("Translate entire dataframe to English"):
             result = translate_dataframe(st.session_state.df)
+            st.success(result)
+            st.experimental_rerun()
+                # Interface to input characters to replace
+        if st.checkbox("Show automatic delimiter changer"):
+            old_char = st.text_input('Character to replace in column names:', '-')
+            new_char = st.text_input('New character:', '_')
+
+            if st.button('Change characters'):
+                # Call the function to rename columns
+                result = rename_columns(st.session_state.df, old_char, new_char)
+                st.success(result)
+                st.experimental_rerun()
+        st.subheader("Combine 2 columns (one main column and one “other” column)")
+        maincolumn = st.selectbox("Select the main column:", [""]+st.session_state.df.columns)
+        next_column = get_next_columns(maincolumn, st.session_state.df.columns.tolist())
+        if maincolumn:
+            unique_valuesf = st.session_state.df[maincolumn].unique()
+            tobereplaced = st.selectbox("Select the value to be replaced:", [""]+unique_valuesf)
+            
+        othercolumn = st.selectbox("Select the 'Other' column", [""] + st.session_state.df.columns.tolist(), index=st.session_state.df.columns.tolist().index(next_column) if next_column else 0)
+        if st.button('Combine and replace'):
+            # Call the function to rename columns
+            result = combinereplace_columns(st.session_state.df, maincolumn, othercolumn, tobereplaced)
+            st.success(result)
+            st.experimental_rerun()
+        if st.button('Combine in a new column'):
+            # Call the function to rename columns
+            result = combine_columns(st.session_state.df, maincolumn, othercolumn, tobereplaced)
             st.success(result)
             st.experimental_rerun()
         st.subheader("Save changes to CSV")
