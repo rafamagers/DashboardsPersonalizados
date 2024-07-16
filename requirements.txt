@@ -8,7 +8,7 @@ googletrans==4.0.0rc1
 nltk==3.8.1
 kaleido
 networkx
-spicy
+spicy==1.11.4
 factor_analyzer
 pingouin
 semopy
