@@ -20,6 +20,7 @@ import nltk
 import re
 from scipy.stats import chi2
 import string
+import scipy
 from nltk.corpus import stopwords
 from nltk import ngrams
 from collections import Counter
@@ -37,9 +38,11 @@ os.environ['R_HOME'] = os.path.expanduser('~/R')
 os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta si es necesario
 #from transformers import pipeline
 #qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
+print(scipy.__version__)
 
 # Inicializar el traductor
 translator = Translator()
+print()
 
 
 # Estado inicial
