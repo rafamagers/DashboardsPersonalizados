@@ -214,17 +214,17 @@ def generate_wordcloud(text_list):
     
     axs[0].imshow(monogram_wordcloud, interpolation='bilinear')
     axs[0].axis('off')
-    axs[0].set_title('Monogramas')
+    axs[0].set_title('Monogram')
     
     if len(bigram_words) > 0:
         axs[1].imshow(bigram_wordcloud, interpolation='bilinear')
         axs[1].axis('off')
-        axs[1].set_title('Bigramas')
+        axs[1].set_title('Bigram')
     
     if len(trigram_words) > 0:
         axs[2].imshow(trigram_wordcloud, interpolation='bilinear')
         axs[2].axis('off')
-        axs[2].set_title('Trigramas')
+        axs[2].set_title('Trigram')
     
     # Convertir la figura a una imagen en base64
     buf = io.BytesIO()
@@ -1877,8 +1877,8 @@ elif main_tab == "Factorial Analysis":
         for factor, items in st.session_state.factor_items.items():
             if items:
                 model_definition += f"F{factor[-1]} =~ {' + '.join(items)}\n"
-
-        st.text_area("Model Definition (lavaan syntax)", model_definition, height=150, disabled=True)
+        activatedlav = st.checkbox("Activate manual lavaan writing")
+        model_definition= st.text_area("Model Definition (lavaan syntax)", model_definition, height=150, disabled=not activatedlav)
         if st.button("Run CFA (Add model)"):
             try:
                 # Verificar si la definición del modelo es válida
