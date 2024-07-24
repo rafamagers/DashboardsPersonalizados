@@ -38,11 +38,11 @@ os.environ['R_HOME'] = os.path.expanduser('~/R')
 os.environ["PATH"] += os.pathsep + '/usr/bin'  # Reemplaza con la ruta correcta si es necesario
 #from transformers import pipeline
 #qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
-print(scipy.__version__)
+
 
 # Inicializar el traductor
 translator = Translator()
-print()
+
 
 
 # Estado inicial
@@ -632,7 +632,7 @@ def generate_multibar_chart(df, columnas, filtro, likert):
         margin=dict(l=120, r=10, t=140, b=80), 
     )
     return fig
-def update_heatmap(selected_columns, filter_var):
+def update_heatmap(selected_columns, filter_var, topvalues):
     if not selected_columns:
         return go.Figure(), 200
     
@@ -677,11 +677,11 @@ def update_heatmap(selected_columns, filter_var):
             hoverinfo="text",
             showscale=True
         ), row=i+1, col=1)
-        
         fig.update_yaxes(tickvals=list(range(len(heatmap_data.index))),
                          ticktext=y_ticktext, row=i+1, col=1)
         for ii, row in heatmap_data.iterrows():
             for j, val in row.items():
+               
                 fig.add_annotation(
                     text=f"{heatmap_text.loc[ii, j]}",
                     yref=f'y{i+1}',
@@ -689,7 +689,7 @@ def update_heatmap(selected_columns, filter_var):
                     x=j,
                     y=ii,
                     showarrow=False,
-                    font=dict(color="black", size=12),
+                    font=dict(color="black", size=tamañoletra),
                     xanchor="center",
                     yanchor="middle"
                 )
@@ -701,11 +701,26 @@ def update_heatmap(selected_columns, filter_var):
             ticktext=["0%", "20%", "40%", "60%", "80%", "100%"]
         )
     )
-    
+    mapped_labels = [topvalues.get(val, val) for val in heatmap_data.columns]
+
     new_height = 200 + len(selected_columns) * 100 * num_subplots
     fig.update_layout(
 
             height=new_height,  
+            font=dict(size = tamañoletra),
+            
+            yaxis=dict(
+                
+                tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje y
+                titlefont=dict(size = tamañoletra+2)  # Color del título del eje y
+            ),
+            xaxis=dict(
+                tickvals= heatmap_data.columns,
+                ticktext= mapped_labels,
+                tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje x
+                titlefont=dict(size = tamañoletra+2)  # Color del título del eje x
+            ),
+            
             
     )
     return fig, new_height
@@ -1204,7 +1219,7 @@ if main_tab == "Descriptive Analysis":
         st.info("First Upload your CSV File.")
         columns = []
         opciones_especiales = []
-
+    tamañoletra = st.number_input(label= "Select the size of the font", value= 16)
     # Tabs anidados dentro de 'Descriptive Analysis'
     if nested_tab == "Various Graphics":
         st.subheader("Various Graphics")
@@ -1220,7 +1235,7 @@ if main_tab == "Descriptive Analysis":
         filtro = st.selectbox("Choose your filter:",["No filter"]+ columns)
         if tipo_grafico == 'Bar Chart':
             hori = st.checkbox("Horizontal bars")
-        if tipo_grafico == 'Bar Chart' or tipo_grafico =='Pie Chart':
+        if tipo_grafico != 'Word Cloud':
             likert = st.selectbox("Choose your likert scale:", ['Original', 'Agreement (5)', 'Agreement (6)', 'Quality (5)', 'Frequency (5)', 'Frequency (6)'])
             if likert=="Agreement (5)":
                 top_labels = {1: "Strongly disagree",2: "Disagree", 3: "Neutral", 4: "Agree", 5: "Strongly agree"}
@@ -1235,7 +1250,7 @@ if main_tab == "Descriptive Analysis":
             else:
                 top_labels={}
         if (filtro!="No filter" and tipo_grafico != "Wordcloud"):
-            st.text("Choose what percentage you want to see in the table (order: N/Table %, N/row %, N/column %):")
+            st.text("Choose what percentage you want to see (order: N/Table %, N/row %, N/column %):")
             totalper = st.checkbox("N/Table total %", True)
             rowper = st.checkbox("N/Row total %")
             colper = st.checkbox("N/Column total %")
@@ -1260,6 +1275,7 @@ if main_tab == "Descriptive Analysis":
                                 y=counts.index,
                                 name=str(filter_value),
                                 text=[f'{p:.1f}%' for p in percentages],
+                                textfont=dict(size=tamañoletra),
                                 textposition='auto',
                                 orientation="h"
                                 ))
@@ -1269,6 +1285,7 @@ if main_tab == "Descriptive Analysis":
                                 y=counts,
                                 name=str(filter_value),
                                 text=[f'{p:.1f}%' for p in percentages],
+                                textfont=dict(size=tamañoletra),
                                 textposition='auto',
                                 orientation="v"
                                 ))
@@ -1279,7 +1296,15 @@ if main_tab == "Descriptive Analysis":
                             barmode='group',
                             title=f"{x_axis} Filtered by {filtro}",
                             xaxis_title=x_axis,
+                            xaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje x
                             yaxis_title='Frequency',
+                            yaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje y
+                            xaxis=dict(
+                                tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje x
+                            ),
+                            yaxis=dict(
+                                tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje y
+                            ),
                             height=700
                         )
                         contingency_table = pd.crosstab(df[x_axis], df[filtro], margins=True, margins_name='Total')
@@ -1289,12 +1314,13 @@ if main_tab == "Descriptive Analysis":
                         counts = aux_df[x_axis].value_counts()
                         total_counts = counts.sum()
                         percentages = (counts / total_counts) * 100
-                        print(counts.index)
+                       
                         if hori:
                             fig.add_trace(go.Bar(
                             x=counts,
                             y=counts.index,
                             text=[f'{p:.1f}%' for p in percentages],
+                            textfont=dict(size=tamañoletra),
                             textposition='auto',
                             orientation="h"
                             ))
@@ -1303,12 +1329,24 @@ if main_tab == "Descriptive Analysis":
                             x=counts.index,
                             y=counts,
                             text=[f'{p:.1f}%' for p in percentages],
+                            textfont=dict(size=tamañoletra),
                             textposition='auto',
                             orientation="v"
                             ))
                         fig.update_layout(
                             height=700,
-                            title="Bar chart of "+str(x_axis)
+                            title="Bar chart of "+str(x_axis),
+                            xaxis_title=x_axis,
+                            xaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje x
+                            yaxis_title='Frequency',
+                            yaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje y
+                            xaxis=dict(
+                                tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje x
+                            ),
+                            yaxis=dict(
+                                tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje y
+                            ),
+                            
                         )
                         counts = aux_df[x_axis].value_counts().reset_index()
                         counts.columns = [x_axis, 'count']
@@ -1323,23 +1361,15 @@ if main_tab == "Descriptive Analysis":
         
                     if filtro!="No filter":
                         unique_values = aux_df[filtro].unique()
-                        fig = make_subplots(rows=1, cols=len(unique_values), specs=[[{'type': 'domain'}]*len(unique_values)])
-                        annotations = []
+                        fig = make_subplots(rows=1, cols=len(unique_values), specs=[[{'type': 'domain'}]*len(unique_values)],  subplot_titles=[f"{filtro}: {val}" for val in unique_values])
+                        
         
                         for i, value in enumerate(unique_values):
                             filtered_df = aux_df[aux_df[filtro] == value]
                             fig.add_trace(
-                                go.Pie(labels=filtered_df[x_axis].value_counts().index, values=filtered_df[x_axis].value_counts().values, name=str(value)),
+                                go.Pie(labels=filtered_df[x_axis].value_counts().index,textfont=dict(size=tamañoletra), values=filtered_df[x_axis].value_counts().values, name=str(value)),
                                 row=1, col=i+1
                             )
-                            annotations.append(dict(
-                                x=0.5/len(unique_values) + i*(1.0/len(unique_values)),
-                                y=-0.1,
-                                text=str(value),
-                                showarrow=False,
-                                xanchor='center',
-                                yanchor='top'
-                            ))
         
                         contingency_table = pd.crosstab(df[x_axis], df[filtro], margins=True, margins_name='Total')
                         output_table = calculate_percentages(contingency_table, x_axis, filtro)
@@ -1347,13 +1377,28 @@ if main_tab == "Descriptive Analysis":
         
                         fig.update_layout(
                             title=f"{x_axis} Filtered by {filtro}",
-                            annotations=annotations
+                        )
+                        fig.update_traces(
+                            textinfo='label+percent',  # Muestra etiquetas y porcentajes
+                            textfont=dict(size=tamañoletra)  # Cambia este tamaño de letra según sea necesario
                         )
                     else:
                         fig = px.pie(aux_df, names=x_axis)
                         fig.update_layout(
-                           
-                            title="Pie chart of "+str(x_axis)
+                            title={
+                                'text': "Pie chart of " + str(x_axis),
+                                'font': dict(size=tamañoletra+2)  # Cambia este tamaño de letra según sea necesario
+                            },
+                            legend=dict(
+                                font=dict(size=tamañoletra)  # Cambia este tamaño de letra según sea necesario para la leyenda
+                            ),
+                            margin=dict(t=50, b=50, l=50, r=50)  # Ajusta los márgenes si es necesario
+                        )
+
+                        # Actualizar el diseño de las etiquetas de los segmentos (textos dentro del pastel)
+                        fig.update_traces(
+                            textinfo='label+percent',  # Muestra etiquetas y porcentajes
+                            textfont=dict(size=tamañoletra)  # Cambia este tamaño de letra según sea necesario
                         )
                         counts = aux_df[x_axis].value_counts().reset_index()
                         counts.columns = [x_axis, 'count']
@@ -1363,29 +1408,107 @@ if main_tab == "Descriptive Analysis":
                     fig = go.Figure()
                     data_table = []
                     if filtro!="No filter":
+                        
                         contingency_table = pd.crosstab(df[x_axis], df[filtro])
+
+                        # Calcular los porcentajes
+                        total_sum = contingency_table.values.sum()
+                        row_sum = contingency_table.sum(axis=1).values[:, None]
+                        col_sum = contingency_table.sum(axis=0).values
+                        
+                        percent_total = contingency_table / total_sum * 100
+                        percent_row = contingency_table.div(contingency_table.sum(axis=1), axis=0) * 100
+                        percent_col = contingency_table.div(contingency_table.sum(axis=0), axis=1) * 100
+                        
+                        # Crear anotaciones de texto
+                        annotations = []
+                        for i, row in enumerate(contingency_table.index):
+                            for j, col in enumerate(contingency_table.columns):
+                                count = contingency_table.loc[row, col]
+                                pct_total = percent_total.loc[row, col]
+                                pct_row = percent_row.loc[row, col]
+                                pct_col = percent_col.loc[row, col]
+                                porcentages = f"{count}"
+                                cell_value = contingency_table.iloc[i, j]
+                                threshold = contingency_table.values.max() / 2  # Ajustar este umbral según sea necesario
+                                text_color = 'white' if cell_value > threshold else 'black'
+                                if totalper or rowper or colper:
+                                    porcentages+=f"<br>"
+                                    dos = False
+                                    if totalper:
+                                        porcentages +=f"{pct_total:.1f}%"
+                                        dos = True
+                                    if rowper:
+                                        porcentages += f"{', ' if dos else ''}{pct_row:.1f}%"
+                                        dos=True
+                                    if colper:
+                                        porcentages += f"{', ' if dos else ''}{pct_col:.1f}%" 
+                                    
+                               
+                                annotations.append(go.layout.Annotation(
+                                    text=f'<b>{porcentages}</b>',
+                                    x=col,
+                                    y=row,
+                                    xref='x1',
+                                    yref='y1',
+                                    showarrow=False,
+                                    font=dict(color=text_color, size = tamañoletra),
+                                    
+                                    
+                                ))
+                        
+                        # Crear el heatmap
+                        
                         fig = go.Figure(data=go.Heatmap(
                             z=contingency_table.values,
                             x=contingency_table.columns,
                             y=contingency_table.index,
-                            colorscale='Blues'
+                            colorscale='Blues',
+                            text=[[f'{contingency_table.iloc[i, j]}<br>{percent_total.iloc[i, j]:.1f}%<br>{percent_row.iloc[i, j]:.1f}%<br>{percent_col.iloc[i, j]:.1f}%' for j in range(contingency_table.shape[1])] for i in range(contingency_table.shape[0])],
+                            hoverinfo='text'
                         ))
-        
+                        #aux_df[x_axis] = aux_df[x_axis].map(lambda x: top_labels[x] if x in top_labels else x)
+                        # Agregar anotaciones
+                        mapped_labels = [top_labels.get(val, val) for val in contingency_table.index]
+                        mapped_labels2 = [top_labels.get(val, val) for val in contingency_table.columns]
                         fig.update_layout(
                             title=f'Contingency table between {x_axis} and {filtro}',
                             xaxis_title=filtro,
                             yaxis_title=split_text_by_words(f'{str(x_axis)}', 9),
-                            xaxis=dict(tickmode='array', tickvals=list(contingency_table.columns)),
-                            yaxis=dict(tickmode='array', tickvals=list(contingency_table.index)),
+                            font=dict(size = tamañoletra),
+                            xaxis=dict(
+                                tickmode='array',
+                                tickvals=list(contingency_table.columns),
+                                ticktext=mapped_labels2,
+                                tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje x
+                                titlefont=dict(size = tamañoletra+2)  # Color del título del eje x
+                            ),
+                            yaxis=dict(
+                                tickmode='array',
+                                tickvals=list(contingency_table.index),
+                                ticktext=mapped_labels,
+                                tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje y
+                                titlefont=dict(size = tamañoletra+2)  # Color del título del eje y
+                            ),
+                            annotations=annotations
                         )
                         contingency_table = pd.crosstab(df[x_axis], df[filtro], margins=True, margins_name='Total')
                         output_table = calculate_percentages(contingency_table, x_axis, filtro)
-                        data_table = output_table.reset_index().to_dict('records')
+                        # Renombrar la primera columna
+                        output_table = output_table.reset_index()
+
+                        # Renombrar la segunda columna (que es la primera columna después de reset_index)
+                        new_column_name = x_axis+"/"+filtro # Cambia esto al nuevo título que desees
+                        output_table.rename(columns={output_table.columns[0]: new_column_name}, inplace=True)
+
+                        # Convertir el DataFrame a un diccionario
+                        data_table = output_table.to_dict('records')
                     else:
                         st.error("Por favor seleccione un filtro para generar la tabla de contingencia.")
         
                 elif tipo_grafico == 'Word Cloud':
                     fig = generate_wordcloud_with_filter(df, x_axis, filtro)
+                    
                     data_table = df[[x_axis, filtro]].dropna().to_dict('records') if filtro!="No filter" else df[[x_axis]].dropna().to_dict('records')
         
                 else:
@@ -1395,7 +1518,7 @@ if main_tab == "Descriptive Analysis":
                     st.session_state['fig_width'] = fig.layout.width
                     st.session_state['fig_height'] = fig.layout.height
                     st.plotly_chart(fig, use_container_width=True)
-                st.dataframe(pd.DataFrame(data_table))
+                st.dataframe(pd.DataFrame(data_table), hide_index=True)
         show_graph_and_table()
     elif nested_tab == "Matrix Charts":
         st.subheader("Matrix Charts")
@@ -1547,19 +1670,26 @@ if main_tab == "Descriptive Analysis":
         else:
             options, var2_disabled, add_disabled = [], True, True
 
-        var2 = st.selectbox("Choose your additional variable:", [opt['label'] for opt in options], disabled=var2_disabled)
-        add_button = st.button("Add", disabled=add_disabled)
-
-        if add_button and var2:
-            if var2 not in selected_columns:
-                selected_columns.append(var2)
-                st.session_state['selected_columns'] = selected_columns
+        selected_columns= st.multiselect("Choose your additional variable:", [opt['label'] for opt in options], disabled=var2_disabled)
+        selected_columns.insert(0, var1)
 
         filter_var = st.selectbox("Select your filter:", ["No filter"]+columns)
         show_table = st.button("Sumbit")
-
+        likert = st.selectbox("Choose your likert scale:", ['Original', 'Agreement (5)', 'Agreement (6)', 'Quality (5)', 'Frequency (5)', 'Frequency (6)'])
+        if likert=="Agreement (5)":
+            top_labels = {1: "Strongly disagree",2: "Disagree", 3: "Neutral", 4: "Agree", 5: "Strongly agree"}
+        elif likert=="Agreement (6)":
+            top_labels = {1: "Disagree Very Strongly", 2: "Disagree Strongly", 3: "Disagree", 4: "Agree",5: "Agree Strongly",6: "Agree Very Strongly"} 
+        elif likert=="Quality (5)":
+            top_labels = {1: "Very Poor",2: "Below average", 3: "Average", 4: "Above average", 5: "Excellent"}
+        elif likert=="Frequency (6)":
+            top_labels = {1:  "Never", 2: "Very rarely", 3: "Rarely",4: "Occacionally",5: "Very frequently",6: "Always"}
+        elif likert=="Frequency (5)":
+            top_labels = {1:  "Never", 2: "Rarely",3:  "Sometimes",4: "Very Often",5: "Always"}
+        else:
+            top_labels={}
         if show_table:
-            heatmap_fig, heatmap_height = update_heatmap(selected_columns, filter_var)
+            heatmap_fig, heatmap_height = update_heatmap(selected_columns, filter_var, top_labels)
             st.plotly_chart(heatmap_fig, use_container_width=True)
             if heatmap_fig:
                 st.session_state['last_fig'] = heatmap_fig
@@ -1592,7 +1722,7 @@ if main_tab == "Descriptive Analysis":
                     # Concatenar los conteos en columnas manteniendo el orden
                     data_tables = pd.concat(conteos_columnas, axis=1)
                     data_table = data_tables.to_dict('records')
-                    st.dataframe(pd.DataFrame(data_table))
+                    st.dataframe(pd.DataFrame(data_table), hide_index=True)
             else:
                 orden_escala = sorted(df[selected_columns].stack().unique().tolist())
                 
@@ -1621,7 +1751,7 @@ if main_tab == "Descriptive Analysis":
                 data_tables = pd.concat(conteos_columnas, axis=1)
                 data_table = data_tables.to_dict('records')
                 
-                st.dataframe(pd.DataFrame(data_table))
+                st.dataframe(pd.DataFrame(data_table), hide_index=True)
         show_graph_and_table()
     elif nested_tab == "Numeric Charts":
         st.subheader("Numeric charts")
@@ -1767,7 +1897,7 @@ elif main_tab == "Factorial Analysis":
 
 
                 communalities = fa.get_communalities()
-                print(communalities)
+               
                 # Mostrar las comunalidades de cada ítem en una tabla separada
                 st.write("Comunalities")
                 items = df_selected.columns.tolist()
@@ -1820,7 +1950,7 @@ elif main_tab == "Factorial Analysis":
                 for i, factor in enumerate(loadings.columns):
                     pos[factor] = (0,int( (i+1)/(len(loadings.columns))*(len(loadings.index)-1)))
                 for i, item in enumerate(loadings.index):
-                    print(i)
+                    
                     pos[item] = (1, i)
 
                 edges = G.edges(data=True)
