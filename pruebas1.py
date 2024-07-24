@@ -642,10 +642,10 @@ def update_heatmap(selected_columns, filter_var):
     else:
         unique_filter_values = df[filter_var].unique()
         unique_filter_values_labels = unique_filter_values.astype(str)
-
-    
+    unicos = df[first_col].unique()
+    unique_values = sorted(set(unicos))
     num_subplots = len(unique_filter_values)
-    
+    selected_columns = selected_columns[::-1]
     if unique_filter_values[0]=="nada":
         fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True)
     else:
@@ -653,10 +653,9 @@ def update_heatmap(selected_columns, filter_var):
     
     for i, valor in enumerate(unique_filter_values):
         filtered_df = df if valor == 'nada' else df[df[filter_var] == valor]
-        unicos = filtered_df[first_col].unique()
-        unique_values = sorted(set(unicos))
         heatmap_data = pd.DataFrame(columns=unique_values)
         heatmap_text = pd.DataFrame(columns=unique_values)
+        
         for col in selected_columns:
             heatmap_data.loc[col] = 0
             for val in unique_values:
@@ -940,6 +939,7 @@ def determine_number_of_factors(eigenvalues, method):
     if method == "Kaiser":
         return np.sum(eigenvalues > 1)
     elif method == "Choose manually with Scree plot":
+              # Crear la figura
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=list(range(1, len(eigenvalues) + 1)),
@@ -954,13 +954,18 @@ def determine_number_of_factors(eigenvalues, method):
                       y0=1, y1=1,
                       line=dict(color="Red", dash="dash"))
 
+        # Actualizar el layout para ajustar el eje Y y mostrar la cuadrícula
         fig.update_layout(
             title='Scree Plot',
             xaxis=dict(title='Factor'),
-            yaxis=dict(title='Eigenvalue'),
-            showlegend=False
+            yaxis=dict(title='Eigenvalue', range=[0, max(eigenvalues) + 0.2], dtick=0.2),
+            showlegend=False,
+            yaxis_tickformat='.3f',  # Formato de los ticks del eje Y
+            yaxis_showgrid=True,     # Mostrar la cuadrícula del eje Y
+            yaxis_gridcolor='LightGray'  # Color de la cuadrícula del eje Y
         )
 
+        # Mostrar la figura en Streamlit
         st.plotly_chart(fig)
 
         return st.number_input("Select number of factors based on scree plot", min_value=1, max_value=len(eigenvalues), value=1)
@@ -1680,13 +1685,22 @@ elif main_tab == "Factorial Analysis":
             else:
                 ordinal_data = df_selected.to_numpy()
                 ordinal_data_transposed = ordinal_data.transpose()  # o ordinal_data.T
-
                 correlation_matrix = polychoric_correlation_serial(ordinal_data_transposed)
 
             # Mostrar matriz de correlación al pulsar un botón
             if st.checkbox("Show Correlation Matrix"):
                 st.write("Correlation Matrix:")
-                st.dataframe(correlation_matrix)
+                st.dataframe(correlation_matrix, height=correlation_matrix.shape[0] * 35+35)
+                # Crear el heatmap
+                fig = px.imshow(correlation_matrix,
+                        color_continuous_scale='Blues',
+                        zmin=0, zmax=1,
+                        labels={'color': 'Correlation'},
+                        title='Heatmap representation')
+
+                # Mostrar el heatmap en Streamlit
+                st.plotly_chart(fig)
+
 
             # Pruebas de Bartlett y KMO
             if st.button("Run Bartlett's test and KMO"):
@@ -1709,8 +1723,11 @@ elif main_tab == "Factorial Analysis":
                 method = 'uls'
             elif extraction_method == "Minimal Residual":
                 method = 'minres'
-
-            fa = FactorAnalyzer(rotation=None, method=method)
+            if rotation != "None":
+                rotation = rotation.split(" ")[0].lower()
+            else:
+                rotation = None
+            fa = FactorAnalyzer(rotation=rotation, method=method)
             fa.fit(df_selected)
             eigenvalues, _ = fa.get_eigenvalues()
 
@@ -1721,10 +1738,7 @@ elif main_tab == "Factorial Analysis":
                         # Obtener eigenvalues y calcular varianza explicada
 
             if st.button("Run") and n_factors:
-                if rotation != "None":
-                    rotation = rotation.split(" ")[0].lower()
-                else:
-                    rotation = None
+
                 if method == "principal":
                     if correlation_matrix_type != "Pearson":
                         st.write("Note: In the Principal Axis Factoring you only can use the default correlation matrx (Pearson)")
