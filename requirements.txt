@@ -14,3 +14,4 @@ pingouin
 semopy
 graphviz
 RyStats
+firebase_admin
