@@ -15,4 +15,4 @@ semopy
 graphviz
 RyStats
 firebase_admin
-dotenv
+python-dotenv
