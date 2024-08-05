@@ -531,7 +531,8 @@ def update_heatmap(selected_columns, filter_var, topvalues):
         fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True)
     else:
         fig = make_subplots(rows=num_subplots, cols=1, shared_yaxes=True, subplot_titles=unique_filter_values_labels)
-    
+    for i, annotation in enumerate(fig['layout']['annotations']):
+        annotation['font'] = dict(size=tamañoletra + 4)  # Ajusta el tamaño de los títulos de los subplots
     for i, valor in enumerate(unique_filter_values):
         filtered_df = df if valor == 'nada' else df[df[filter_var] == valor]
         heatmap_data = pd.DataFrame(columns=unique_values)
@@ -560,6 +561,7 @@ def update_heatmap(selected_columns, filter_var, topvalues):
         ), row=i+1, col=1)
         fig.update_yaxes(tickvals=list(range(len(heatmap_data.index))),
                          ticktext=y_ticktext, row=i+1, col=1)
+        
         for ii, row in heatmap_data.iterrows():
             for j, val in row.items():
                
@@ -583,27 +585,32 @@ def update_heatmap(selected_columns, filter_var, topvalues):
         )
     )
     mapped_labels = [topvalues.get(val, val) for val in heatmap_data.columns]
-
-    new_height = 200 + len(selected_columns) * 100 * num_subplots
+    if altura ==0:
+        new_height = 200 + len(selected_columns) * 100 * num_subplots
+    else:
+        new_height = altura
     fig.update_layout(
-
-            height=new_height,  
-            font=dict(size = tamañoletra),
-            
-            yaxis=dict(
-                
-                tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje y
-                titlefont=dict(size = tamañoletra+2)  # Color del título del eje y
-            ),
-            xaxis=dict(
-                tickvals= heatmap_data.columns,
-                ticktext= mapped_labels,
-                tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje x
-                titlefont=dict(size = tamañoletra+2)  # Color del título del eje x
-            ),
-            
-            
+        height=new_height,                   
     )
+    if titulo != "":
+        fig.update_layout(
+            title=titulo,                   
+        )
+    for i in range(1, num_subplots + 1):  # num_subplots es el número total de subplots
+        fig.update_yaxes(
+            tickfont=dict(size=tamañoletra),
+            titlefont=dict(size=tamañoletra + 2),
+            row=i, col=1
+        )
+        fig.update_xaxes(
+            tickvals=heatmap_data.columns,
+            ticktext=mapped_labels,
+            tickfont=dict(size=tamañoletra),
+            titlefont=dict(size=tamañoletra + 2),
+            row=i, col=1
+        )
+
+
     return fig, new_height
 # Function to update second dropdown options
 def update_second_dropdown_options(selected_column):
@@ -640,10 +647,17 @@ def update_second_dropdown_options(selected_column):
 def generate_mean_polygon_chart(df, selected_x, selected_y, filter_var):
     if filter_var!="No filter":
         df_grouped = df.groupby([filter_var, selected_x]).agg({selected_y: 'mean'}).reset_index()
-        fig = px.line(df_grouped, x=selected_x, y=selected_y, color=filter_var, markers=True)
+        if show_poly:
+            fig = px.line(df_grouped, x=selected_x, y=selected_y, color=filter_var, markers=True)
+        else:
+            fig = px.bar(df_grouped, x=selected_x, y=selected_y, color=filter_var, barmode='group')
     else:
         df_grouped = df.groupby(selected_x).agg({selected_y: 'mean'}).reset_index()
         fig = px.line(df_grouped, x=selected_x, y=selected_y, markers=True)
+        if show_poly:
+            fig = px.line(df_grouped, x=selected_x, y=selected_y, markers=True)
+        else:
+            fig = px.bar(df_grouped, x=selected_x, y=selected_y)
     
     fig.update_layout(
         height=500,
@@ -835,7 +849,7 @@ def update_numerico(selected_grafico, selected_x, selected_y, filter_var, show_p
     if not selected_grafico or not selected_x or not selected_y:
         return go.Figure()
 
-    if selected_grafico == 'Mean polygon chart':
+    if selected_grafico == 'Mean bar chart':
         fig = generate_mean_polygon_chart(df, selected_x, selected_y, filter_var)
     
     elif selected_grafico == 'Violin chart':
@@ -865,7 +879,35 @@ def update_numerico(selected_grafico, selected_x, selected_y, filter_var, show_p
             )     
     return fig
 
-
+def addcustomization(titulo, tituloejex, tituloejey, fig, reemplazot, reemplazox, reemplazoy, altura, tamañoletra):
+    if titulo=="":
+        titulo = reemplazot
+    if tituloejex=="":
+        tituloejex = reemplazox
+    if tituloejey=="":
+        tituloejey = reemplazoy
+    fig.update_layout(
+        title=titulo,
+        xaxis=dict(
+            title=dict(
+                text= tituloejex,
+                font=dict(size=tamañoletra + 2)  # Tamaño del título del eje x
+            ),
+            tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje x
+        ),
+        yaxis=dict(
+            title=dict(
+                text= tituloejey,
+                font=dict(size=tamañoletra + 2)  # Tamaño del título del eje y
+            ),
+            tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje y
+        ) 
+    )
+    
+    if altura != 0:
+        fig.update_layout(
+        height=altura   
+    )
 
 df = st.session_state.df
 if df is None:
@@ -894,6 +936,8 @@ if nested_tab == "Categorical charts":
     filtro = container1.selectbox("Choose your filter:",["No filter"]+ columns)
     if tipo_grafico == 'Bar Chart':
         hori = container1.checkbox("Horizontal bars")
+        if filtro!="No filter":
+            porcenbar = container1.checkbox("Switch percentages in the bar charts")
     if tipo_grafico != 'Word Cloud':
         likert = container1.selectbox("Choose your likert scale:", ['Original', 'Agreement (5)', 'Agreement (6)', 'Quality (5)', 'Frequency (5)', 'Frequency (6)'])
         if likert=="Agreement (5)":
@@ -908,12 +952,36 @@ if nested_tab == "Categorical charts":
             top_labels = {1:  "Never", 2: "Rarely",3:  "Sometimes",4: "Very Often",5: "Always"}
         else:
             top_labels={}
+
+    color_scales = ['Blues', 'Cividis', 'Plasma', 'Inferno', 'Magma', 'Jet', 'Viridis']
+    if (container1.checkbox("Show aditional customization: ")):
+        if tipo_grafico == 'Bar Chart':
+            if (filtro!="No filter"):
+                num_filters = df[filtro].unique()
+                base = px.colors.qualitative.Plotly
+                colors = [container1.color_picker(f'Select the color to filter value: {val}', base[i]) for i,val in enumerate(num_filters)]
+            else:  
+                selected_colorscale = container1.selectbox('Select your color scale:', color_scales)
+        if tipo_grafico == 'Contingency Table':
+            selected_colorscale = container1.selectbox('Select your color scale:', color_scales)
+        tamañoletra = container1.number_input(label= "Select the size of the chart's font", value= 16)
+        titulo = container1.text_input(label= "Input chart's title")
+        tituloejex = container1.text_input(label= "Input X-Axis title")
+        tituloejey = container1.text_input(label= "Input Y-Axis title")
+        altura = container1.number_input(label= "Height of the chart: ", value=0)
+    else:
+        selected_colorscale = 'Blues'
+        colors = px.colors.qualitative.Plotly  # Lista de colores predefinidos en Plotly
+        tamañoletra = 16
+        titulo = ""
+        tituloejex = ""
+        tituloejey =  ""
+        altura = 0
     if (filtro!="No filter" and tipo_grafico != "Wordcloud"):
         container1.markdown("Choose what percentage you want to see (order: N/Table %, N/row %, N/column %):")
         totalper = container1.checkbox("N/Table total %", True)
         rowper = container1.checkbox("N/Row total %")
         colper = container1.checkbox("N/Column total %")
-    tamañoletra = container1.number_input(label= "Select the size of the chart's font", value= 16)
     if container1.button("Submit"):
         if tipo_grafico and x_axis:
             if tipo_grafico == 'Bar Chart':
@@ -922,51 +990,53 @@ if nested_tab == "Categorical charts":
                 aux_df[x_axis] = aux_df[x_axis].map(lambda x: top_labels[x] if x in top_labels else x)
                 fig = go.Figure()
                 data_table = []
-                
                 if filtro != "No filter":
-                    filtered_dfs = aux_df.groupby(filtro)
+                    filtered_dfs = df.groupby(filtro)
+                    color_index = 0  # Índice para seleccionar colores personalizados
                     for filter_value, filtered_df in filtered_dfs:
-                        counts = filtered_df[x_axis].value_counts()
-                        total_counts = counts.sum()
-                        percentages = (counts / total_counts) * 100
+                        if not porcenbar:
+                            counts = filtered_df[x_axis].value_counts()
+                            total_counts = df[x_axis].value_counts()
+                            percentages = (counts / total_counts[counts.index]) * 100
+                        else:
+                            counts = filtered_df[x_axis].value_counts()
+                            total_counts = counts.sum()
+                            percentages = (counts / total_counts) * 100
+
                         if hori:
                             fig.add_trace(go.Bar(
-                            x=counts,
-                            y=counts.index,
-                            name=str(filter_value),
-                            text=[f'{p:.1f}%' for p in percentages],
-                            textfont=dict(size=tamañoletra),
-                            textposition='auto',
-                            orientation="h"
+                                x=counts,
+                                y=counts.index,
+                                name=str(filter_value),
+                                text=[f'{p:.1f}%' for p in percentages],
+                                textfont=dict(size=tamañoletra),
+                                textposition='auto',
+                                orientation="h",
+                                marker=dict(color=colors[color_index],
+                                            line=dict(color='black', width=2))  # Aplica el color seleccionado
                             ))
                         else:
                             fig.add_trace(go.Bar(
-                            x=counts.index,
-                            y=counts,
-                            name=str(filter_value),
-                            text=[f'{p:.1f}%' for p in percentages],
-                            textfont=dict(size=tamañoletra),
-                            textposition='auto',
-                            orientation="v"
+                                x=counts.index,
+                                y=counts,
+                                name=str(filter_value),
+                                text=[f'{p:.1f}%' for p in percentages],
+                                textfont=dict(size=tamañoletra),
+                                textposition='auto',
+                                orientation="v",
+                                marker=dict(color=colors[color_index],
+                                            line=dict(color='black', width=2))  # Aplica el color seleccionado
                             ))
+
+                        color_index = (color_index + 1) % len(colors)  # Cambia al siguiente color
     
                         data_table.extend(filtered_df[[x_axis, filtro]].to_dict('records'))
     
                     fig.update_layout(
                         barmode='group',
-                        title=f"{x_axis} Filtered by {filtro}",
-                        xaxis_title=x_axis,
-                        xaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje x
-                        yaxis_title='Frequency',
-                        yaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje y
-                        xaxis=dict(
-                            tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje x
-                        ),
-                        yaxis=dict(
-                            tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje y
-                        ),
                         height=700
                     )
+                    addcustomization(titulo, tituloejex, tituloejey, fig, f"{x_axis} Filtered by {filtro}",x_axis, 'Frequency', altura, tamañoletra )
                     contingency_table = pd.crosstab(df[x_axis], df[filtro], margins=True, margins_name='Total')
                     output_table = calculate_percentages(contingency_table, x_axis, filtro)
                     data_table = output_table.reset_index().to_dict('records')
@@ -974,7 +1044,8 @@ if nested_tab == "Categorical charts":
                     counts = aux_df[x_axis].value_counts()
                     total_counts = counts.sum()
                     percentages = (counts / total_counts) * 100
-                   
+                    normalized_values = np.interp(counts, (min(counts), max(counts)), (0, 1))
+                    # Define una escala de colores
                     if hori:
                         fig.add_trace(go.Bar(
                         x=counts,
@@ -982,7 +1053,12 @@ if nested_tab == "Categorical charts":
                         text=[f'{p:.1f}%' for p in percentages],
                         textfont=dict(size=tamañoletra),
                         textposition='auto',
-                        orientation="h"
+                        orientation="h",
+                        marker=dict(
+                            color=normalized_values,  # Usa los valores normalizados para la escala de colores
+                            colorscale=selected_colorscale,  # Aplica la escala de colores
+                            line=dict(color='black', width=2)
+                        )
                         ))
                     else:
                         fig.add_trace(go.Bar(
@@ -991,23 +1067,17 @@ if nested_tab == "Categorical charts":
                         text=[f'{p:.1f}%' for p in percentages],
                         textfont=dict(size=tamañoletra),
                         textposition='auto',
-                        orientation="v"
+                        orientation="v",
+                        marker=dict(
+                            color=normalized_values,  # Usa los valores normalizados para la escala de colores
+                            colorscale=selected_colorscale,  # Aplica la escala de colores
+                            line=dict(color='black', width=2)
+                        )
                         ))
                     fig.update_layout(
                         height=700,
-                        title="Bar chart of "+str(x_axis),
-                        xaxis_title=x_axis,
-                        xaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje x
-                        yaxis_title='Frequency',
-                        yaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje y
-                        xaxis=dict(
-                            tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje x
-                        ),
-                        yaxis=dict(
-                            tickfont=dict(size=tamañoletra)  # Tamaño de la fuente de las etiquetas del eje y
-                        ),
-                        
                     )
+                    addcustomization(titulo, tituloejex, tituloejey, fig, "Bar chart of "+str(x_axis),x_axis, 'Frequency', altura, tamañoletra)
                     counts = aux_df[x_axis].value_counts().reset_index()
                     counts.columns = [x_axis, 'count']
                     data_table = counts.to_dict('records')
@@ -1027,7 +1097,10 @@ if nested_tab == "Categorical charts":
                     for i, value in enumerate(unique_values):
                         filtered_df = aux_df[aux_df[filtro] == value]
                         fig.add_trace(
-                            go.Pie(labels=filtered_df[x_axis].value_counts().index,textfont=dict(size=tamañoletra), values=filtered_df[x_axis].value_counts().values, name=str(value)),
+                            go.Pie(labels=filtered_df[x_axis].value_counts().index,textfont=dict(size=tamañoletra), 
+                                   values=filtered_df[x_axis].value_counts().values, name=str(value),
+                                     # Aplica colores personalizados
+                            ),
                             row=1, col=i+1
                         )
     
@@ -1035,13 +1108,13 @@ if nested_tab == "Categorical charts":
                     output_table = calculate_percentages(contingency_table, x_axis, filtro)
                     data_table = output_table.reset_index().to_dict('records')
     
-                    fig.update_layout(
-                        title=f"{x_axis} Filtered by {filtro}",
-                    )
+                    
                     fig.update_traces(
                         textinfo='label+percent',  # Muestra etiquetas y porcentajes
-                        textfont=dict(size=tamañoletra)  # Cambia este tamaño de letra según sea necesario
+                        textfont=dict(size=tamañoletra),  # Cambia este tamaño de letra según sea necesario
+                         # Asigna colores personalizados
                     )
+                    addcustomization(titulo, tituloejex, tituloejey, fig, f"{x_axis} Filtered by {filtro}","", "", altura, tamañoletra )
                 else:
                     fig = px.pie(aux_df, names=x_axis)
                     fig.update_layout(
@@ -1052,8 +1125,10 @@ if nested_tab == "Categorical charts":
                         legend=dict(
                             font=dict(size=tamañoletra)  # Cambia este tamaño de letra según sea necesario para la leyenda
                         ),
+                        
                         margin=dict(t=50, b=50, l=50, r=50)  # Ajusta los márgenes si es necesario
                     )
+                    addcustomization(titulo, tituloejex, tituloejey, fig, "Pie chart of " + str(x_axis),"", '', altura, tamañoletra)
                     # Actualizar el diseño de las etiquetas de los segmentos (textos dentro del pastel)
                     fig.update_traces(
                         textinfo='label+percent',  # Muestra etiquetas y porcentajes
@@ -1121,7 +1196,7 @@ if nested_tab == "Categorical charts":
                         z=contingency_table.values,
                         x=contingency_table.columns,
                         y=contingency_table.index,
-                        colorscale='Blues',
+                        colorscale=selected_colorscale,
                         text=[[f'{contingency_table.iloc[i, j]}<br>{percent_total.iloc[i, j]:.1f}%<br>{percent_row.iloc[i, j]:.1f}%<br>{percent_col.iloc[i, j]:.1f}%' for j in range(contingency_table.shape[1])] for i in range(contingency_table.shape[0])],
                         hoverinfo='text'
                     ))
@@ -1130,26 +1205,28 @@ if nested_tab == "Categorical charts":
                     mapped_labels = [top_labels.get(val, val) for val in contingency_table.index]
                     mapped_labels2 = [top_labels.get(val, val) for val in contingency_table.columns]
                     fig.update_layout(
+                        height=len(df[x_axis].unique())*80,
                         title=f'Contingency table between {x_axis} and {filtro}',
                         xaxis_title=filtro,
                         yaxis_title=split_text_by_words(f'{str(x_axis)}', 9),
+                        xaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje x
+                        yaxis_title_font=dict(size=tamañoletra+2),  # Tamaño del título del eje y
                         font=dict(size = tamañoletra),
                         xaxis=dict(
                             tickmode='array',
                             tickvals=list(contingency_table.columns),
                             ticktext=mapped_labels2,
                             tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje x
-                            titlefont=dict(size = tamañoletra+2)  # Color del título del eje x
                         ),
                         yaxis=dict(
                             tickmode='array',
                             tickvals=list(contingency_table.index),
                             ticktext=mapped_labels,
                             tickfont=dict(size = tamañoletra),  # Color de las etiquetas del eje y
-                            titlefont=dict(size = tamañoletra+2)  # Color del título del eje y
                         ),
                         annotations=annotations
                     )
+                    addcustomization(titulo, tituloejex, tituloejey, fig, f'Contingency table between {x_axis} and {filtro}',filtro, split_text_by_words(f'{str(x_axis)}', 9), altura, tamañoletra)
                     contingency_table = pd.crosstab(df[x_axis], df[filtro], margins=True, margins_name='Total')
                     output_table = calculate_percentages(contingency_table, x_axis, filtro)
                     # Renombrar la primera columna
@@ -1308,7 +1385,6 @@ elif nested_tab == "Custom Heatmaps":
     selected_columns= container3.multiselect("Choose your additional variable:", [opt['label'] for opt in options], disabled=var2_disabled)
     selected_columns.insert(0, var1)
     filter_var = container3.selectbox("Select your filter:", ["No filter"]+columns)
-    tamañoletra = container3.number_input(label= "Select the size of the chart's font", value= 16)
     likert = container3.selectbox("Choose your likert scale:", ['Original', 'Agreement (5)', 'Agreement (6)', 'Quality (5)', 'Frequency (5)', 'Frequency (6)'])
     if likert=="Agreement (5)":
         top_labels = {1: "Strongly disagree",2: "Disagree", 3: "Neutral", 4: "Agree", 5: "Strongly agree"}
@@ -1322,6 +1398,14 @@ elif nested_tab == "Custom Heatmaps":
         top_labels = {1:  "Never", 2: "Rarely",3:  "Sometimes",4: "Very Often",5: "Always"}
     else:
         top_labels={}
+    if (container3.checkbox("Show aditional customization: ")):
+        tamañoletra = container3.number_input(label= "Select the size of the chart's font", value= 16)
+        titulo = container3.text_input(label= "Input chart's title")
+        altura = container3.number_input(label= "Height of the chart: ", value=0)
+    else:
+        tamañoletra = 16
+        titulo = ""
+        altura = 0
     show_table = container3.button("Sumbit")
 
     if show_table:
@@ -1400,7 +1484,7 @@ elif nested_tab == "Numeric Charts":
         st.markdown("4. Click on Sumbit to visualise your graphic")   
     container4 = st.container(border=True)
     numeric_columns = df.select_dtypes(include=['number']).columns.tolist()        
-    chart_type = container4.selectbox("Select your chart:", ['Box plot', 'Mean polygon chart', 'Violin chart', 'Ridgeline chart', 'Displot chart'])
+    chart_type = container4.selectbox("Select your chart:", ['Box plot', 'Mean bar chart', 'Violin chart', 'Ridgeline chart', 'Displot chart'])
     num_var = container4.selectbox("Select your numerical variable:", [""]+numeric_columns)
     cat_var = container4.selectbox("Select your group variable:", ["No variable"]+columns)
     filter_var = container4.selectbox("Select your filter (categoric):", ["No filter"]+columns)
@@ -1410,6 +1494,8 @@ elif nested_tab == "Numeric Charts":
         #show_ = st.checkbox("Show labels")
     else:
         show_points = False
+    if chart_type == 'Mean bar chart':
+        show_poly = container4.checkbox("Show in polygon chart")
     tamañoletra = container4.number_input(label= "Select the size of the chart's font", value= 16)
     show_table = container4.button("Sumbit")
     if show_table:
