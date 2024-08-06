@@ -91,7 +91,7 @@ def remove_factor():
         del st.session_state.factor_items[f'Factor {st.session_state.num_factors}']
         st.session_state.num_factors -= 1
 
-def calculate_kmo2(corr_matrix):
+def calculate_kmo2(corr_matrix, item_names):
     corr_matrix = np.asarray(corr_matrix)
     inv_corr_matrix = np.linalg.inv(corr_matrix)
     
@@ -110,8 +110,23 @@ def calculate_kmo2(corr_matrix):
     kmo_numerator = corr_sq_sum
     kmo_denominator = corr_sq_sum + partial_corr_sq_sum
     kmo_value = kmo_numerator / kmo_denominator
+
+    # Individual KMO calculation
+    kmo_individual = []
+    for i in range(corr_matrix.shape[0]):
+        corr_sq_sum_i = np.sum(corr_sq[:, i]) - corr_sq[i, i]
+        partial_corr_sq_sum_i = np.sum(partial_corr_sq[:, i]) - partial_corr_sq[i, i]
+        kmo_i_numerator = corr_sq_sum_i
+        kmo_i_denominator = corr_sq_sum_i + partial_corr_sq_sum_i
+        kmo_individual.append((kmo_i_numerator / kmo_i_denominator).round(4))
     
-    return kmo_value
+    # Create the resulting matrix
+    kmo_matrix = pd.DataFrame({
+        "Item": item_names,
+        "KMO Value": kmo_individual
+    })
+    
+    return kmo_value, kmo_matrix
 
 # Test de Bartlett
 def calculate_bartlett_corr_matrix(corr_matrix, n):
@@ -176,9 +191,20 @@ if nested_tab == "Exploratory factor analysis":
         if st.button("Run Bartlett's test and KMO"):
             n = len(df)
             chi_square_value, p_value = calculate_bartlett_corr_matrix(correlation_matrix, n)
-            kmo = calculate_kmo2(correlation_matrix)
-            st.write(f"Bartlett's test: Chi-square value = {chi_square_value}, p-value = {p_value}")
-            st.write(f"Kaiser-Meyer-Olkin (KMO) test: KMO model = {kmo}")
+            kmooverall,kmoindi = calculate_kmo2(correlation_matrix, selected_items)
+            st.markdown(
+                f"""
+                ### Bartlett's test:
+                - **Chi-square value =** {chi_square_value}
+                - **p-value =** {p_value}
+
+                ### Kaiser-Meyer-Olkin (KMO) test:
+                - **Overall =** {kmooverall}
+                - **Individual =** 
+            """
+            )
+            print(kmoindi)
+            st.dataframe(kmoindi,hide_index=True)
         # Tipo de matriz de correlación
         # Método de extracción
         extraction_method = st.selectbox("Select extraction method", ["Principal Axis Factoring", "Maximum Likelihood","Unweighted Least Squares (ULS)", "Minimal Residual"])
